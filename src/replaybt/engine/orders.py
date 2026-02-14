@@ -23,6 +23,9 @@ class Order:
     breakeven_trigger_pct: Optional[float] = None  # e.g. 0.015 = +1.5%
     breakeven_lock_pct: Optional[float] = None      # e.g. 0.005 = +0.5%
 
+    # Cancel pending limit orders when this order is processed
+    cancel_pending_limits: bool = False
+
     # Scale-in configuration
     scale_in_enabled: bool = False
     scale_in_dip_pct: float = 0.002       # -0.2% dip
@@ -41,3 +44,15 @@ class LimitOrder(Order):
     """Limit order — fills when price reaches limit_price."""
     limit_price: float = 0.0
     timeout_bars: int = 0  # 0 = no timeout
+    use_maker_fee: bool = True  # False = use taker fee (e.g. DCA fills)
+    min_positions: int = 0  # only fill when >= N positions exist (e.g. DCA needs 1)
+
+
+class CancelPendingLimitsOrder:
+    """Sentinel: return from on_exit/on_fill to cancel all pending limit orders.
+
+    Use when you need to clear pending limits without placing a new order.
+    For clearing limits AND placing an order, set cancel_pending_limits=True
+    on the Order instead.
+    """
+    pass

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from replaybt.data.types import Bar, Fill, Position, Side
 from replaybt.data.providers.base import DataProvider
 from replaybt.engine.loop import BacktestEngine
-from replaybt.engine.orders import Order, MarketOrder
+from replaybt.engine.orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
 from replaybt.strategy.base import Strategy
 
 
@@ -235,3 +235,250 @@ class TestEventCallbacks:
         engine.on("bar", lambda b: bar_count.append(1))
         engine.run()
         assert len(bar_count) == 10
+
+
+class TestCancelPendingLimits:
+    """Test cancel_pending_limits via order flag and sentinel."""
+
+    def test_cancel_pending_on_order_flag(self):
+        """cancel_pending_limits=True on LimitOrder clears old limits."""
+
+        class LimitThenReplaceStrategy(Strategy):
+            """Places a limit, then replaces it with cancel flag."""
+            def __init__(self):
+                self.bars_seen = 0
+
+            def on_bar(self, bar, indicators, positions):
+                self.bars_seen += 1
+                if self.bars_seen == 2:
+                    # Place first limit at an unfillable price
+                    return LimitOrder(
+                        side=Side.LONG, limit_price=50.0,
+                        take_profit_pct=0.05, stop_loss_pct=0.03,
+                    )
+                if self.bars_seen == 4:
+                    # Replace with new limit, cancelling old
+                    return LimitOrder(
+                        side=Side.LONG, limit_price=51.0,
+                        take_profit_pct=0.05, stop_loss_pct=0.03,
+                        cancel_pending_limits=True,
+                    )
+                return None
+
+        bars = make_bars(10)
+        engine = BacktestEngine(
+            strategy=LimitThenReplaceStrategy(),
+            data=ListProvider(bars),
+            config={"initial_equity": 10000},
+        )
+        engine.run()
+
+        # After bar 4, old limit at 50.0 should be gone, only 51.0 remains
+        assert len(engine._pending_limits) <= 1
+        if engine._pending_limits:
+            assert engine._pending_limits[0].order.limit_price == 51.0
+
+    def test_cancel_pending_sentinel(self):
+        """CancelPendingLimitsOrder from on_exit clears limits."""
+
+        class BuyThenCancelOnExit(Strategy):
+            """Buys, places a limit on fill, returns sentinel on exit."""
+            def __init__(self):
+                self.bars_seen = 0
+
+            def on_bar(self, bar, indicators, positions):
+                self.bars_seen += 1
+                if self.bars_seen == 1 and not positions:
+                    return MarketOrder(
+                        side=Side.LONG,
+                        take_profit_pct=0.05, stop_loss_pct=0.03,
+                    )
+                return None
+
+            def on_fill(self, fill):
+                if fill.is_entry:
+                    return LimitOrder(
+                        side=Side.LONG, limit_price=50.0,
+                        take_profit_pct=0.05, stop_loss_pct=0.03,
+                    )
+                return None
+
+            def on_exit(self, fill, trade):
+                return CancelPendingLimitsOrder()
+
+        # Bars that trigger SL quickly
+        bars = [
+            Bar(datetime(2024, 1, 1, 0, 0), 100, 101, 99, 100.5, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 1), 100.5, 101, 100, 100.8, 1000, "TEST"),
+            # Gap down past SL
+            Bar(datetime(2024, 1, 1, 0, 2), 90.0, 91, 89, 90.5, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 3), 90.5, 91, 90, 90.8, 1000, "TEST"),
+        ]
+
+        engine = BacktestEngine(
+            strategy=BuyThenCancelOnExit(),
+            data=ListProvider(bars),
+            config={"initial_equity": 10000},
+        )
+        engine.run()
+
+        # After exit, sentinel should have cleared pending limits
+        assert len(engine._pending_limits) == 0
+
+
+class TestSkipSignalOnClose:
+    """Test skip_signal_on_close config flag."""
+
+    def test_signal_on_close_bar_when_enabled(self):
+        """skip_signal_on_close=False allows re-entry on close bar."""
+
+        class AlwaysReenterStrategy(Strategy):
+            """Always re-enters after exit."""
+            def on_bar(self, bar, indicators, positions):
+                if not positions:
+                    return MarketOrder(
+                        side=Side.LONG,
+                        take_profit_pct=0.03, stop_loss_pct=0.03,
+                    )
+                return None
+
+        # Bars: enter, survive, SL gap, then should re-enter immediately
+        bars = [
+            Bar(datetime(2024, 1, 1, 0, 0), 100, 101, 99, 100.5, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 1), 100.5, 101, 100, 100.8, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 2), 100.8, 101.2, 100.5, 101.0, 1000, "TEST"),
+            # SL hit — gap down
+            Bar(datetime(2024, 1, 1, 0, 3), 95.0, 96, 94, 95.5, 1000, "TEST"),
+            # With skip=False, signal on bar 3 → entry on bar 4
+            Bar(datetime(2024, 1, 1, 0, 4), 95.5, 96, 95, 95.8, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 5), 95.8, 96.5, 95, 96.0, 1000, "TEST"),
+            Bar(datetime(2024, 1, 1, 0, 6), 96.0, 97, 95.5, 96.5, 1000, "TEST"),
+        ]
+
+        engine = BacktestEngine(
+            strategy=AlwaysReenterStrategy(),
+            data=ListProvider(bars),
+            config={"initial_equity": 10000, "skip_signal_on_close": False},
+        )
+
+        signals = []
+        engine.on("signal", lambda o: signals.append(o))
+        results = engine.run()
+
+        # First trade exits on bar 3. With skip=False, re-entry signal on bar 3
+        # means second entry at bar 4 (one bar earlier than default).
+        assert len(results.trades) >= 1
+        t1 = results.trades[0]
+        assert t1.exit_time == datetime(2024, 1, 1, 0, 3)
+
+        if len(results.trades) >= 2:
+            t2 = results.trades[1]
+            # Entry at bar 4 (signal on close bar 3, execute at bar 4's open)
+            assert t2.entry_time == datetime(2024, 1, 1, 0, 4)
+
+
+class TestSameDirectionOnly:
+    """Test same_direction_only config flag."""
+
+    def test_opposite_direction_when_enabled(self):
+        """same_direction_only=False allows hedging (long + short)."""
+
+        class HedgeStrategy(Strategy):
+            """Opens long first, then short."""
+            def __init__(self):
+                self.bars_seen = 0
+
+            def on_bar(self, bar, indicators, positions):
+                self.bars_seen += 1
+                if self.bars_seen == 1:
+                    return MarketOrder(
+                        side=Side.LONG,
+                        take_profit_pct=0.10, stop_loss_pct=0.10,
+                    )
+                if self.bars_seen == 3:
+                    return MarketOrder(
+                        side=Side.SHORT,
+                        take_profit_pct=0.10, stop_loss_pct=0.10,
+                    )
+                return None
+
+        bars = make_bars(10)
+        engine = BacktestEngine(
+            strategy=HedgeStrategy(),
+            data=ListProvider(bars),
+            config={
+                "initial_equity": 10000,
+                "max_positions": 2,
+                "same_direction_only": False,
+            },
+        )
+
+        fills = []
+        engine.on("fill", lambda f: fills.append(f))
+        engine.run()
+
+        # Both orders should fill (long then short)
+        assert len(fills) >= 2
+        assert fills[0].side == Side.LONG
+        assert fills[1].side == Side.SHORT
+
+
+class TestOnBarReturnsList:
+    """Test on_bar returning a list of orders."""
+
+    def test_on_bar_returns_list(self):
+        """List of orders all get processed."""
+
+        class MultiOrderStrategy(Strategy):
+            """Returns a market order + limit order on bar 2."""
+            def __init__(self):
+                self.bars_seen = 0
+
+            def on_bar(self, bar, indicators, positions):
+                self.bars_seen += 1
+                if self.bars_seen == 2 and not positions:
+                    return [
+                        MarketOrder(
+                            side=Side.LONG,
+                            take_profit_pct=0.10, stop_loss_pct=0.10,
+                        ),
+                        LimitOrder(
+                            side=Side.LONG, limit_price=50.0,
+                            take_profit_pct=0.10, stop_loss_pct=0.10,
+                        ),
+                    ]
+                return None
+
+        bars = make_bars(10)
+        engine = BacktestEngine(
+            strategy=MultiOrderStrategy(),
+            data=ListProvider(bars),
+            config={"initial_equity": 10000, "max_positions": 2},
+        )
+
+        signals = []
+        engine.on("signal", lambda o: signals.append(o))
+        engine.run()
+
+        # Both orders should be signaled
+        assert len(signals) >= 2
+        # Market order sets pending, limit order goes to pending limits
+        assert any(isinstance(s, MarketOrder) for s in signals)
+        assert any(isinstance(s, LimitOrder) for s in signals)
+
+    def test_on_bar_returns_empty_list(self):
+        """Empty list = no orders, engine runs clean."""
+
+        class EmptyListStrategy(Strategy):
+            def on_bar(self, bar, indicators, positions):
+                return []
+
+        bars = make_bars(5)
+        engine = BacktestEngine(
+            strategy=EmptyListStrategy(),
+            data=ListProvider(bars),
+            config={"initial_equity": 10000},
+        )
+        results = engine.run()
+        assert results.total_trades == 0
+        assert results.final_equity == 10000

@@ -26,7 +26,7 @@ from .version import __version__
 from .engine.loop import BacktestEngine
 from .engine.execution import ExecutionModel
 from .engine.portfolio import Portfolio
-from .engine.orders import Order, MarketOrder, LimitOrder
+from .engine.orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
 
 # Data types
 from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason, PendingOrder, ScaleInOrder
@@ -55,6 +55,7 @@ from .strategy.config import StrategyConfig
 
 # Reporting
 from .reporting.metrics import BacktestResults
+from .reporting.monthly import MonthStats, monthly_breakdown, format_monthly_table
 
 __all__ = [
     # Engine
@@ -64,6 +65,7 @@ __all__ = [
     "Order",
     "MarketOrder",
     "LimitOrder",
+    "CancelPendingLimitsOrder",
     # Data
     "Bar",
     "Fill",
@@ -95,4 +97,7 @@ __all__ = [
     "StrategyConfig",
     # Reporting
     "BacktestResults",
+    "MonthStats",
+    "monthly_breakdown",
+    "format_monthly_table",
 ]
