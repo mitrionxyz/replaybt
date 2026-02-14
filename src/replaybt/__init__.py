@@ -27,6 +27,7 @@ from .engine.loop import BacktestEngine
 from .engine.execution import ExecutionModel
 from .engine.portfolio import Portfolio
 from .engine.orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
+from .engine.step import StepEngine, StepObservation, StepResult
 
 # Data types
 from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason, PendingOrder, ScaleInOrder
@@ -34,6 +35,8 @@ from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason,
 # Data providers
 from .data.providers.base import DataProvider
 from .data.providers.csv import CSVProvider
+from .data.providers.replay import ReplayProvider
+from .data.providers.live import AsyncDataProvider, HyperliquidProvider, LighterProvider
 
 # Indicators
 from .indicators.base import Indicator, IndicatorManager
@@ -52,10 +55,19 @@ from .indicators.resampler import Resampler
 # Strategy
 from .strategy.base import Strategy
 from .strategy.config import StrategyConfig
+from .strategy.declarative import DeclarativeStrategy
 
 # Reporting
 from .reporting.metrics import BacktestResults
 from .reporting.monthly import MonthStats, monthly_breakdown, format_monthly_table
+
+# Validation
+from .validation.auditor import BacktestAuditor, Issue, audit_file
+from .validation.stress import DelayTest, DelayTestResult, OOSSplit, OOSResult
+
+# Optimization
+from .optimize.sweep import ParameterSweep
+from .optimize.results import SweepResults
 
 __all__ = [
     # Engine
@@ -66,6 +78,9 @@ __all__ = [
     "MarketOrder",
     "LimitOrder",
     "CancelPendingLimitsOrder",
+    "StepEngine",
+    "StepObservation",
+    "StepResult",
     # Data
     "Bar",
     "Fill",
@@ -78,6 +93,10 @@ __all__ = [
     "ScaleInOrder",
     "DataProvider",
     "CSVProvider",
+    "ReplayProvider",
+    "AsyncDataProvider",
+    "HyperliquidProvider",
+    "LighterProvider",
     # Indicators
     "Indicator",
     "IndicatorManager",
@@ -95,9 +114,21 @@ __all__ = [
     # Strategy
     "Strategy",
     "StrategyConfig",
+    "DeclarativeStrategy",
     # Reporting
     "BacktestResults",
     "MonthStats",
     "monthly_breakdown",
     "format_monthly_table",
+    # Validation
+    "BacktestAuditor",
+    "Issue",
+    "audit_file",
+    "DelayTest",
+    "DelayTestResult",
+    "OOSSplit",
+    "OOSResult",
+    # Optimization
+    "ParameterSweep",
+    "SweepResults",
 ]

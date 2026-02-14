@@ -128,6 +128,41 @@ class BacktestEngine:
         for cb in self._callbacks.get(event, []):
             cb(*args)
 
+    async def run_async(self, data) -> BacktestResults:
+        """Run with async data source (live/paper trading).
+
+        Same 4-phase execution as run(), but consumes bars from an
+        AsyncDataProvider via ``async for``. Strategy.on_bar() stays
+        synchronous -- only data delivery is async.
+
+        Args:
+            data: AsyncDataProvider yielding bars.
+                  Warmup should be called before run_async().
+
+        Returns:
+            BacktestResults (same as run()).
+        """
+        self.portfolio.reset()
+        self.indicators.reset()
+        self._pending_order = None
+        self._pending_limits.clear()
+        self._bar_count = 0
+        self._first_bar = None
+        self._last_bar = None
+
+        async for bar in data:
+            if self._first_bar is None:
+                self._first_bar = bar
+            self._last_bar = bar
+            self._process_bar(bar)
+
+        return BacktestResults.from_portfolio(
+            self.portfolio,
+            symbol=data.symbol(),
+            first_bar=self._first_bar,
+            last_bar=self._last_bar,
+        )
+
     def run(self) -> BacktestResults:
         """Execute the backtest. Returns results with all metrics."""
         self.portfolio.reset()
