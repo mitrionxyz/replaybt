@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Tuple
 
 from ..data.types import Bar, Fill, Position, Trade, Side, ScaleInOrder
 from .execution import ExecutionModel
@@ -36,6 +37,9 @@ class Portfolio:
         self.fills: List[Fill] = []
         self.total_fees = 0.0
 
+        # Equity curve: list of (timestamp, equity) after each trade close
+        self.equity_curve: List[Tuple[datetime, float]] = []
+
         # Scale-in state
         self.pending_scale_in: Optional[ScaleInOrder] = None
 
@@ -56,19 +60,26 @@ class Portfolio:
         return len(self.positions) < self.max_positions
 
     def open_position(
-        self, bar: Bar, order: Order, apply_slippage: bool = True
+        self,
+        bar: Bar,
+        order: Order,
+        apply_slippage: bool = True,
+        limit_price: Optional[float] = None,
+        is_maker: bool = False,
     ) -> Fill:
-        """Open a new position at bar's open price.
+        """Open a new position at bar's open price (or limit price).
 
         Args:
-            bar: Current bar (position opens at bar.open).
+            bar: Current bar (position opens at bar.open for market orders).
             order: The order to execute.
             apply_slippage: Whether to apply adverse slippage.
+            limit_price: Override entry price (for limit order fills).
+            is_maker: If True, charge maker_fee instead of taker_fee.
 
         Returns:
             Fill object for the entry.
         """
-        price = bar.open
+        price = limit_price if limit_price is not None else bar.open
         if apply_slippage:
             price = self.execution.apply_entry_slippage(price, order.side)
 
@@ -99,7 +110,7 @@ class Portfolio:
         self.positions.append(pos)
 
         # Entry fees
-        fees = self.execution.calc_fees(size_usd)
+        fees = self.execution.calc_fees(size_usd, is_maker=is_maker)
         self.total_fees += fees
 
         fill = Fill(
@@ -187,6 +198,9 @@ class Portfolio:
         )
         self.trades.append(trade)
 
+        # Track equity curve
+        self.equity_curve.append((bar.timestamp, self.equity))
+
         fill = Fill(
             timestamp=bar.timestamp,
             side=pos.side,
@@ -266,4 +280,5 @@ class Portfolio:
         self.trades.clear()
         self.fills.clear()
         self.total_fees = 0.0
+        self.equity_curve.clear()
         self.pending_scale_in = None

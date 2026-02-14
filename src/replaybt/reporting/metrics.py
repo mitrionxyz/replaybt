@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
 
-from ..data.types import Trade
+from ..data.types import Bar, Trade
+from .monthly import MonthStats, monthly_breakdown, format_monthly_table
 
 
 @dataclass
@@ -13,7 +15,8 @@ class BacktestResults:
     """Complete backtest results with all required metrics.
 
     Includes: net return, max drawdown, win rate, avg win/loss,
-    total fees, profit factor, and trade breakdown.
+    total fees, profit factor, trade breakdown, equity curve,
+    buy-and-hold comparison, and monthly breakdown.
     """
     symbol: str = ""
     initial_equity: float = 10_000.0
@@ -34,11 +37,38 @@ class BacktestResults:
     trades: List[Trade] = field(default_factory=list)
     exit_breakdown: Dict[str, int] = field(default_factory=dict)
 
+    # Equity curve: (timestamp, equity) after each trade close
+    equity_curve: List[Tuple[datetime, float]] = field(default_factory=list)
+
+    # Buy-and-hold comparison
+    buy_hold_return_pct: Optional[float] = None
+    first_price: Optional[float] = None
+    last_price: Optional[float] = None
+
+    # Monthly breakdown
+    monthly: List[MonthStats] = field(default_factory=list)
+
     @classmethod
-    def from_portfolio(cls, portfolio, symbol: str = "") -> "BacktestResults":
+    def from_portfolio(
+        cls,
+        portfolio,
+        symbol: str = "",
+        first_bar: Optional[Bar] = None,
+        last_bar: Optional[Bar] = None,
+    ) -> "BacktestResults":
         """Build results from a Portfolio instance."""
         trades = portfolio.trades
         total = len(trades)
+
+        # Buy-and-hold
+        buy_hold_return = None
+        first_price = None
+        last_price = None
+        if first_bar is not None and last_bar is not None:
+            first_price = first_bar.close
+            last_price = last_bar.close
+            if first_price > 0:
+                buy_hold_return = (last_price - first_price) / first_price * 100
 
         if total == 0:
             return cls(
@@ -46,6 +76,10 @@ class BacktestResults:
                 initial_equity=portfolio.initial_equity,
                 final_equity=portfolio.equity,
                 trades=[],
+                equity_curve=list(portfolio.equity_curve),
+                buy_hold_return_pct=buy_hold_return,
+                first_price=first_price,
+                last_price=last_price,
             )
 
         winners = [t for t in trades if t.pnl_usd > 0]
@@ -84,6 +118,11 @@ class BacktestResults:
             total_fees=portfolio.total_fees,
             trades=list(trades),
             exit_breakdown=breakdown,
+            equity_curve=list(portfolio.equity_curve),
+            buy_hold_return_pct=buy_hold_return,
+            first_price=first_price,
+            last_price=last_price,
+            monthly=monthly_breakdown(trades),
         )
 
     def summary(self) -> str:
@@ -104,6 +143,12 @@ class BacktestResults:
             f"  Final Equity:     ${self.final_equity:,.2f}",
         ]
 
+        if self.buy_hold_return_pct is not None:
+            lines.append(f"  {'─'*56}")
+            lines.append(f"  Buy & Hold:       {self.buy_hold_return_pct:+.1f}%")
+            alpha = self.net_return_pct - self.buy_hold_return_pct
+            lines.append(f"  Alpha:            {alpha:+.1f}%")
+
         if self.exit_breakdown:
             lines.append(f"  {'─'*56}")
             lines.append(f"  Exit Breakdown:")
@@ -113,6 +158,10 @@ class BacktestResults:
 
         lines.append(f"{'='*60}")
         return "\n".join(lines)
+
+    def monthly_table(self) -> str:
+        """Return formatted monthly breakdown table."""
+        return format_monthly_table(self.monthly, self.initial_equity)
 
     def __repr__(self) -> str:
         return (
