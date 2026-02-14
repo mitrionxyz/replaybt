@@ -47,7 +47,7 @@ class ScalperReplaybt(Strategy):
     Key integration:
     - on_fill: returns LimitOrder for DCA (LIT), processed in Phase 1b
     - on_exit: returns MarketOrder for post-TP flip (HYPE), processed in Phase 1
-    - _clear_pending_limits: engine clears pending limits on TP exit (DCA cancel)
+    - on_exit: returns CancelPendingLimitsOrder on TP exit (DCA cancel)
     """
 
     def __init__(self, symbol: str, df_1m: pd.DataFrame, cfg: dict):
