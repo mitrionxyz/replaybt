@@ -74,7 +74,7 @@ from .validation.auditor import BacktestAuditor, Issue, audit_file
 from .validation.stress import DelayTest, DelayTestResult, OOSSplit, OOSResult
 
 # Sizing
-from .sizing import PositionSizer, FixedSizer, EquityPctSizer, RiskPctSizer
+from .sizing import PositionSizer, FixedSizer, EquityPctSizer, RiskPctSizer, KellySizer
 
 # Optimization
 from .optimize.sweep import ParameterSweep
@@ -159,6 +159,7 @@ __all__ = [
     "FixedSizer",
     "EquityPctSizer",
     "RiskPctSizer",
+    "KellySizer",
     # Optimization
     "ParameterSweep",
     "SweepResults",
