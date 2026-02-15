@@ -1,0 +1,101 @@
+site_name: replaybt
+site_description: Realistic backtesting engine for algo traders & AI agents
+site_url: https://sirmoremoney.github.io/replaybt
+repo_url: https://github.com/sirmoremoney/replaybt
+repo_name: sirmoremoney/replaybt
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started/index.md
+  - Concepts:
+    - concepts/index.md
+    - Execution Loop: concepts/execution-loop.md
+    - Signal Timing: concepts/signal-timing.md
+    - Gap Protection: concepts/gap-protection.md
+    - Multi-Timeframe: concepts/multi-timeframe.md
+  - Strategy:
+    - strategy/index.md
+    - Callbacks: strategy/callbacks.md
+    - Declarative: strategy/declarative.md
+    - Per-Symbol Config: strategy/per-symbol-config.md
+    - Custom Exits: strategy/custom-exits.md
+  - Cookbook:
+    - cookbook/index.md
+    - EMA Crossover: cookbook/ema-crossover.md
+    - Mean Reversion: cookbook/mean-reversion.md
+    - Scale-In: cookbook/scale-in.md
+    - Breakeven Stop: cookbook/breakeven.md
+    - Trailing Stop: cookbook/trailing-stop.md
+    - Multi-Asset: cookbook/multi-asset.md
+    - RL Agent: cookbook/rl-agent.md
+  - Data:
+    - data/index.md
+    - CSV & Parquet: data/csv-loading.md
+    - Exchange Fetchers: data/exchange-fetchers.md
+    - Caching: data/caching.md
+    - Validation: data/validation.md
+    - Live Providers: data/live-providers.md
+  - Optimization:
+    - optimization/index.md
+    - Parameter Sweep: optimization/parameter-sweep.md
+    - Walk-Forward: optimization/walk-forward.md
+    - Monte Carlo: optimization/monte-carlo.md
+  - API Reference:
+    - api/index.md
+    - Engine: api/engine.md
+    - Orders: api/orders.md
+    - Data Types: api/data-types.md
+    - Data Providers: api/data-providers.md
+    - Data Validation: api/data-validation.md
+    - Indicators: api/indicators.md
+    - Strategy: api/strategy.md
+    - Reporting: api/reporting.md
+    - Validation: api/validation.md
+    - Optimization: api/optimization.md
+    - Sizing: api/sizing.md
+    - Analysis: api/analysis.md
+    - Plots: api/plots.md

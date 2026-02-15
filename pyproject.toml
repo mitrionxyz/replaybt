@@ -41,6 +41,7 @@ live = ["aiohttp>=3.8", "websockets>=11.0"]
 cli = ["click>=8.0", "rich>=13.0"]
 plots = ["matplotlib>=3.5"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0", "matplotlib>=3.5", "requests>=2.28"]
+docs = ["mkdocs>=1.5", "mkdocs-material>=9.5", "pymdown-extensions>=10.0"]
 
 [tool.hatch.version]
 path = "src/replaybt/version.py"
