@@ -39,6 +39,11 @@ from .data.providers.base import DataProvider
 from .data.providers.csv import CSVProvider
 from .data.providers.replay import ReplayProvider
 from .data.providers.live import AsyncDataProvider, HyperliquidProvider, LighterProvider
+from .data.cache import CachedProvider
+from .data.fetchers import BinanceProvider, BybitProvider
+
+# Data validation
+from .data.validation import DataValidator, DataIssue, validate_dataframe, validate_provider, ValidatedProvider
 
 # Indicators
 from .indicators.base import Indicator, IndicatorManager
@@ -75,6 +80,9 @@ from .sizing import PositionSizer, FixedSizer, EquityPctSizer, RiskPctSizer
 from .optimize.sweep import ParameterSweep
 from .optimize.results import SweepResults
 
+# Analysis
+from .analysis import MonteCarlo, MonteCarloResult, WalkForward, WalkForwardResult, WindowResult
+
 __all__ = [
     # Engine
     "BacktestEngine",
@@ -105,6 +113,15 @@ __all__ = [
     "AsyncDataProvider",
     "HyperliquidProvider",
     "LighterProvider",
+    "CachedProvider",
+    "BinanceProvider",
+    "BybitProvider",
+    # Data validation
+    "DataValidator",
+    "DataIssue",
+    "validate_dataframe",
+    "validate_provider",
+    "ValidatedProvider",
     # Indicators
     "Indicator",
     "IndicatorManager",
@@ -145,4 +162,10 @@ __all__ = [
     # Optimization
     "ParameterSweep",
     "SweepResults",
+    # Analysis
+    "MonteCarlo",
+    "MonteCarloResult",
+    "WalkForward",
+    "WalkForwardResult",
+    "WindowResult",
 ]

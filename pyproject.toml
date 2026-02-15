@@ -36,9 +36,11 @@ Source = "https://github.com/sirmoremoney/replaybt"
 Issues = "https://github.com/sirmoremoney/replaybt/issues"
 
 [project.optional-dependencies]
+data = ["requests>=2.28"]
 live = ["aiohttp>=3.8", "websockets>=11.0"]
 cli = ["click>=8.0", "rich>=13.0"]
-dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+plots = ["matplotlib>=3.5"]
+dev = ["pytest>=7.0", "pytest-cov>=4.0", "matplotlib>=3.5", "requests>=2.28"]
 
 [tool.hatch.version]
 path = "src/replaybt/version.py"
