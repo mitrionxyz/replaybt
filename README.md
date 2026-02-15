@@ -50,6 +50,32 @@ results = engine.run()
 print(results.summary())
 ```
 
+**Output:**
+
+```
+============================================================
+  Backtest Results: ETH
+============================================================
+  Net PnL:          $1,445.06 (+14.5%)
+  Max Drawdown:     5.6%
+  Total Trades:     11
+  Win Rate:         54.5%
+  Avg Win:          $495.00 (4.98%)
+  Avg Loss:         $304.99 (3.02%)
+  Profit Factor:    1.95
+  Total Fees:       $33.00
+  Initial Equity:   $10,000.00
+  Final Equity:     $11,445.06
+  ────────────────────────────────────────────────────────
+  Buy & Hold:       +2.8%
+  Alpha:            +11.7%
+  ────────────────────────────────────────────────────────
+  Exit Breakdown:
+    STOP_LOSS               5 (45.5%)
+    TAKE_PROFIT             6 (54.5%)
+============================================================
+```
+
 ## Key Features
 
 - **Signals at T, fills at T+1** — no look-ahead bias
