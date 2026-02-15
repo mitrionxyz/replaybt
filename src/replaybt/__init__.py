@@ -68,6 +68,9 @@ from .reporting.multi import MultiAssetResults
 from .validation.auditor import BacktestAuditor, Issue, audit_file
 from .validation.stress import DelayTest, DelayTestResult, OOSSplit, OOSResult
 
+# Sizing
+from .sizing import PositionSizer, FixedSizer, EquityPctSizer, RiskPctSizer
+
 # Optimization
 from .optimize.sweep import ParameterSweep
 from .optimize.results import SweepResults
@@ -134,6 +137,11 @@ __all__ = [
     "DelayTestResult",
     "OOSSplit",
     "OOSResult",
+    # Sizing
+    "PositionSizer",
+    "FixedSizer",
+    "EquityPctSizer",
+    "RiskPctSizer",
     # Optimization
     "ParameterSweep",
     "SweepResults",

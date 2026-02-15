@@ -68,6 +68,7 @@ class Position:
     partial_tp_pct: float = 0.0
     partial_tp_new_tp_pct: float = 0.0
     partial_tp_done: bool = False
+    group: Optional[str] = None
 
     @property
     def is_long(self) -> bool:
@@ -103,6 +104,7 @@ class Trade:
     reason: str
     symbol: str = ""
     is_partial: bool = False
+    group: Optional[str] = None
 
 
 @dataclass(slots=True)

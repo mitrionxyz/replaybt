@@ -10,6 +10,9 @@ from .execution import ExecutionModel
 from .orders import Order
 
 
+_UNSET = object()
+
+
 class Portfolio:
     """Tracks positions, equity, and computes drawdown.
 
@@ -23,6 +26,7 @@ class Portfolio:
         default_size_usd: float = 10_000.0,
         execution: Optional[ExecutionModel] = None,
         max_positions: int = 1,
+        sizer=None,
     ):
         self.initial_equity = initial_equity
         self.equity = initial_equity
@@ -31,6 +35,7 @@ class Portfolio:
         self.default_size_usd = default_size_usd
         self.execution = execution or ExecutionModel()
         self.max_positions = max_positions
+        self.sizer = sizer  # Optional PositionSizer; None = use default_size_usd
 
         self.positions: List[Position] = []
         self.trades: List[Trade] = []
@@ -53,8 +58,16 @@ class Portfolio:
     def position_count(self) -> int:
         return len(self.positions)
 
-    def can_open(self) -> bool:
-        return len(self.positions) < self.max_positions
+    def can_open(self, group=_UNSET) -> bool:
+        if group is _UNSET:
+            return len(self.positions) < self.max_positions
+        return self.position_count_in_group(group) < self.max_positions
+
+    def positions_in_group(self, group: Optional[str] = None) -> List[Position]:
+        return [p for p in self.positions if p.group == group]
+
+    def position_count_in_group(self, group: Optional[str] = None) -> int:
+        return sum(1 for p in self.positions if p.group == group)
 
     def open_position(
         self,
@@ -80,7 +93,16 @@ class Portfolio:
         if apply_slippage:
             price = self.execution.apply_entry_slippage(price, order.side)
 
-        size_usd = order.size_usd or self.default_size_usd
+        if order.size_usd is not None:
+            size_usd = order.size_usd
+        elif self.sizer is not None:
+            size_usd = self.sizer.get_size(
+                equity=self.equity, side=order.side, price=price,
+                symbol=order.symbol or bar.symbol,
+                stop_loss_pct=order.stop_loss_pct or 0.0,
+            )
+        else:
+            size_usd = self.default_size_usd
 
         # Calculate TP/SL levels
         tp_pct = order.take_profit_pct or 0.0
@@ -109,6 +131,7 @@ class Portfolio:
             position_low=price,
             partial_tp_pct=order.partial_tp_pct or 0.0,
             partial_tp_new_tp_pct=order.partial_tp_new_tp_pct or 0.0,
+            group=order.group,
         )
         self.positions.append(pos)
 
@@ -149,9 +172,26 @@ class Portfolio:
         Returns:
             Fill object for the merge entry.
         """
-        pos = self.positions[0]
+        # Find position matching the order's group
+        group = getattr(order, 'group', None)
+        pos = None
+        for p in self.positions:
+            if p.group == group:
+                pos = p
+                break
+        if pos is None:
+            pos = self.positions[0]
         old_size = pos.size_usd
-        new_size = order.size_usd or self.default_size_usd
+        if order.size_usd is not None:
+            new_size = order.size_usd
+        elif self.sizer is not None:
+            new_size = self.sizer.get_size(
+                equity=self.equity, side=order.side, price=limit_price,
+                symbol=order.symbol or pos.symbol,
+                stop_loss_pct=order.stop_loss_pct or 0.0,
+            )
+        else:
+            new_size = self.default_size_usd
         total_size = old_size + new_size
 
         # Average entry price
@@ -244,6 +284,7 @@ class Portfolio:
             reason=reason,
             symbol=pos.symbol,
             is_partial=is_partial,
+            group=pos.group,
         )
         self.trades.append(trade)
 

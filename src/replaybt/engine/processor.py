@@ -115,15 +115,17 @@ class BarProcessor:
         # PHASE 1: Execute pending market orders at bar OPEN
         # ============================================================
         just_opened = False
-        if self._pending_order is not None and self.portfolio.can_open():
+        if self._pending_order is not None and self.portfolio.can_open(self._pending_order.group):
             order = self._pending_order
             self._pending_order = None
 
-            # For multi-position: ensure same direction (unless hedging enabled)
-            if self._same_direction_only and self.portfolio.has_position:
-                existing_side = self.portfolio.positions[0].side
-                if order.side != existing_side:
-                    order = None  # Skip conflicting direction
+            # For multi-position: ensure same direction within group
+            if self._same_direction_only:
+                group_positions = self.portfolio.positions_in_group(order.group)
+                if group_positions:
+                    existing_side = group_positions[0].side
+                    if order.side != existing_side:
+                        order = None  # Skip conflicting direction
 
             if order is not None:
                 fill = self.portfolio.open_position(bar, order)
@@ -144,9 +146,10 @@ class BarProcessor:
             is_merge = pending.order.merge_position
 
             if is_merge:
-                # Merge orders need an existing position to merge into
-                if not self.portfolio.has_position:
-                    # No position — tick timeout but don't fill
+                # Merge orders need an existing position in the same group
+                group_positions = self.portfolio.positions_in_group(pending.order.group)
+                if not group_positions:
+                    # No position in group — tick timeout but don't fill
                     pending.bars_elapsed += 1
                     if (
                         pending.order.timeout_bars > 0
@@ -155,14 +158,16 @@ class BarProcessor:
                         to_remove.add(id(pending))
                     continue
             else:
-                if not self.portfolio.can_open():
+                if not self.portfolio.can_open(pending.order.group):
                     break
-                # Direction check (unless hedging enabled)
-                if self._same_direction_only and self.portfolio.has_position:
-                    existing_side = self.portfolio.positions[0].side
-                    if pending.order.side != existing_side:
-                        to_remove.add(id(pending))
-                        continue
+                # Direction check within group
+                if self._same_direction_only:
+                    group_positions = self.portfolio.positions_in_group(pending.order.group)
+                    if group_positions:
+                        existing_side = group_positions[0].side
+                        if pending.order.side != existing_side:
+                            to_remove.add(id(pending))
+                            continue
 
             pending.bars_elapsed += 1
 
@@ -212,14 +217,16 @@ class BarProcessor:
         stops_snapshot = list(self._pending_stops)
         stops_to_remove = set()
         for pending in stops_snapshot:
-            if not self.portfolio.can_open():
+            if not self.portfolio.can_open(pending.order.group):
                 break
-            # Direction check
-            if self._same_direction_only and self.portfolio.has_position:
-                existing_side = self.portfolio.positions[0].side
-                if pending.order.side != existing_side:
-                    stops_to_remove.add(id(pending))
-                    continue
+            # Direction check within group
+            if self._same_direction_only:
+                group_positions = self.portfolio.positions_in_group(pending.order.group)
+                if group_positions:
+                    existing_side = group_positions[0].side
+                    if pending.order.side != existing_side:
+                        stops_to_remove.add(id(pending))
+                        continue
 
             pending.bars_elapsed += 1
 

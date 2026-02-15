@@ -107,6 +107,7 @@ class MultiAssetEngine:
                 default_size_usd=sym_cfg.get("default_size_usd", 10_000.0),
                 execution=self.execution,
                 max_positions=sym_cfg.get("max_positions", 1),
+                sizer=sym_cfg.get("sizer"),
             )
             self._portfolios[sym] = portfolio
 

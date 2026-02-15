@@ -14,6 +14,7 @@ class Order:
     side: Side
     size_usd: Optional[float] = None  # None = use default from config
     symbol: str = ""
+    group: Optional[str] = None  # position group for independent tracking
 
     # TP/SL as percentages from entry price
     take_profit_pct: Optional[float] = None

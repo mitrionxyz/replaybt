@@ -73,6 +73,7 @@ class BacktestEngine:
             default_size_usd=self.config.get("default_size_usd", 10_000.0),
             execution=self.execution,
             max_positions=self.config.get("max_positions", 1),
+            sizer=self.config.get("sizer"),
         )
 
         # Build indicator manager
