@@ -9,7 +9,7 @@ from pathlib import Path
 from replaybt import BacktestEngine, CSVProvider, DeclarativeStrategy
 
 DATA = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "sample_1m.csv"
-CONFIG = Path(__file__).resolve().parent / "trendmaster.json"
+CONFIG = Path(__file__).resolve().parent / "trend_follower.json"
 
 
 def main():

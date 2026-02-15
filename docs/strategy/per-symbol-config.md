@@ -9,15 +9,14 @@ from replaybt import StrategyConfig
 
 config = StrategyConfig(
     defaults={
-        "ema_fast": 15,
-        "ema_slow": 35,
-        "tp": 0.08,
-        "sl": 0.035,
-        "chop": 0.011,
+        "ema_fast": 10,
+        "ema_slow": 50,
+        "tp": 0.06,
+        "sl": 0.03,
     },
     overrides={
-        "ETH": {"ema_fast": 10, "ema_slow": 30, "tp": 0.12, "sl": 0.04},
-        "SUI": {"ema_fast": 8, "tp": 0.12},
+        "ETH": {"ema_fast": 12, "ema_slow": 26, "tp": 0.08, "sl": 0.04},
+        "BNB": {"ema_fast": 8, "tp": 0.10},
     },
 )
 ```
@@ -26,12 +25,11 @@ config = StrategyConfig(
 
 ```python
 # With symbol — checks overrides first, falls back to defaults
-config.get("tp", symbol="ETH")   # 0.12 (ETH override)
-config.get("tp", symbol="SOL")   # 0.08 (default — no SOL override)
-config.get("chop", symbol="ETH") # 0.011 (default — ETH doesn't override chop)
+config.get("tp", symbol="ETH")   # 0.08 (ETH override)
+config.get("tp", symbol="SOL")   # 0.06 (default — no SOL override)
 
 # Without symbol — always returns default
-config.get("tp")  # 0.08
+config.get("tp")  # 0.06
 
 # With fallback
 config.get("missing_key", default=42)  # 42
@@ -41,16 +39,16 @@ config.get("missing_key", default=42)  # 42
 
 ```python
 merged = config.for_symbol("ETH")
-# {"ema_fast": 10, "ema_slow": 30, "tp": 0.12, "sl": 0.04, "chop": 0.011}
+# {"ema_fast": 12, "ema_slow": 26, "tp": 0.08, "sl": 0.04}
 
 merged = config.for_symbol("SOL")
-# {"ema_fast": 15, "ema_slow": 35, "tp": 0.08, "sl": 0.035, "chop": 0.011}
+# {"ema_fast": 10, "ema_slow": 50, "tp": 0.06, "sl": 0.03}
 ```
 
 ## Listing Symbols
 
 ```python
-config.symbols()  # ["ETH", "SUI"]
+config.symbols()  # ["ETH", "BNB"]
 ```
 
 ## Using in a Strategy
@@ -58,13 +56,13 @@ config.symbols()  # ["ETH", "SUI"]
 ```python
 from replaybt import Strategy, StrategyConfig, MarketOrder, Side
 
-class TrendMaster(Strategy):
+class TrendFollower(Strategy):
     def configure(self, config):
         self._params = StrategyConfig(
-            defaults={"tp": 0.08, "sl": 0.035},
+            defaults={"tp": 0.06, "sl": 0.03},
             overrides={
-                "ETH": {"tp": 0.12, "sl": 0.04},
-                "SUI": {"tp": 0.12},
+                "ETH": {"tp": 0.08, "sl": 0.04},
+                "BNB": {"tp": 0.10},
             },
         )
         self._prev = {}
@@ -93,11 +91,11 @@ class TrendMaster(Strategy):
 from replaybt import MultiAssetEngine, CSVProvider
 
 engine = MultiAssetEngine(
-    strategy=TrendMaster(),
+    strategy=TrendFollower(),
     assets={
         "ETH": CSVProvider("ETH_1m.csv", symbol_name="ETH"),
         "SOL": CSVProvider("SOL_1m.csv", symbol_name="SOL"),
-        "SUI": CSVProvider("SUI_1m.csv", symbol_name="SUI"),
+        "BNB": CSVProvider("BNB_1m.csv", symbol_name="BNB"),
     },
     config={
         "initial_equity": 10_000,

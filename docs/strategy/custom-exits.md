@@ -9,9 +9,9 @@ Move the stop loss to lock in a small profit once the position reaches a thresho
 ```python
 MarketOrder(
     side=Side.LONG,
-    take_profit_pct=0.08,
-    stop_loss_pct=0.035,
-    breakeven_trigger_pct=0.015,  # activate at +1.5%
+    take_profit_pct=0.06,
+    stop_loss_pct=0.03,
+    breakeven_trigger_pct=0.02,   # activate at +2%
     breakeven_lock_pct=0.005,     # move SL to +0.5%
 )
 ```
@@ -136,10 +136,10 @@ All exit types can be combined on a single order:
 ```python
 MarketOrder(
     side=Side.LONG,
-    take_profit_pct=0.08,             # fixed TP
-    stop_loss_pct=0.035,              # fixed SL
-    breakeven_trigger_pct=0.015,      # breakeven at +1.5%
-    breakeven_lock_pct=0.005,         # lock at +0.5%
+    take_profit_pct=0.06,             # fixed TP
+    stop_loss_pct=0.03,              # fixed SL
+    breakeven_trigger_pct=0.02,      # breakeven at +2%
+    breakeven_lock_pct=0.005,        # lock at +0.5%
     trailing_stop_pct=0.02,           # trail 2% below peak
     trailing_stop_activation_pct=0.04, # activate at +4%
     partial_tp_pct=0.5,               # close 50% at TP

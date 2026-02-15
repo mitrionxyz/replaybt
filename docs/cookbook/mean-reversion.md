@@ -43,7 +43,7 @@ class RSIScalper(Strategy):
 
 engine = BacktestEngine(
     strategy=RSIScalper(),
-    data=CSVProvider("HYPE_1m.csv", symbol_name="HYPE"),
+    data=CSVProvider("ETH_1m.csv", symbol_name="ETH"),
     config={
         "initial_equity": 10_000,
         "skip_signal_on_close": False,  # allow re-entry after exit

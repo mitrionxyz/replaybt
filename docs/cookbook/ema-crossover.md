@@ -111,6 +111,6 @@ def on_bar(self, bar, indicators, positions):
 
     # Only long when 1h trend is bullish
     if not positions and crossed_up and fast_1h > slow_1h:
-        return MarketOrder(side=Side.LONG, take_profit_pct=0.08, stop_loss_pct=0.035)
+        return MarketOrder(side=Side.LONG, take_profit_pct=0.06, stop_loss_pct=0.03)
     return None
 ```

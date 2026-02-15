@@ -13,7 +13,7 @@ Base class for all order types.
 | `symbol` | `str` | `""` | Asset symbol |
 | `group` | `Optional[str]` | `None` | Position group for independent tracking |
 | `take_profit_pct` | `Optional[float]` | `None` | TP as fraction from entry (0.08 = 8%) |
-| `stop_loss_pct` | `Optional[float]` | `None` | SL as fraction from entry (0.035 = 3.5%) |
+| `stop_loss_pct` | `Optional[float]` | `None` | SL as fraction from entry (0.03 = 3%) |
 | `breakeven_trigger_pct` | `Optional[float]` | `None` | Activate breakeven at this profit |
 | `breakeven_lock_pct` | `Optional[float]` | `None` | Lock SL at this profit level |
 | `trailing_stop_pct` | `Optional[float]` | `None` | Trail distance from peak |
@@ -33,8 +33,8 @@ from replaybt import MarketOrder, Side
 
 order = MarketOrder(
     side=Side.LONG,
-    take_profit_pct=0.08,
-    stop_loss_pct=0.035,
+    take_profit_pct=0.06,
+    stop_loss_pct=0.03,
 )
 ```
 

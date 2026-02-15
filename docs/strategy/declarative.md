@@ -7,7 +7,7 @@ Define a strategy entirely in JSON — no Python subclassing needed. Useful for 
 ```python
 from replaybt import BacktestEngine, CSVProvider, DeclarativeStrategy
 
-strategy = DeclarativeStrategy.from_json("trendmaster.json")
+strategy = DeclarativeStrategy.from_json("trend_follower.json")
 engine = BacktestEngine(
     strategy=strategy,
     data=CSVProvider("ETH_1m.csv", symbol_name="ETH"),
@@ -23,12 +23,12 @@ results = engine.run()
 
 ```json
 {
-  "name": "TrendMaster",
+  "name": "TrendFollower",
   "indicators": {
-    "ema_fast": {"type": "ema", "period": 15, "timeframe": "30m", "source": "close"},
-    "ema_slow": {"type": "ema", "period": 35, "timeframe": "30m", "source": "close"},
-    "ema_fast_1h": {"type": "ema", "period": 15, "timeframe": "1h", "source": "close"},
-    "ema_slow_1h": {"type": "ema", "period": 35, "timeframe": "1h", "source": "close"}
+    "ema_fast": {"type": "ema", "period": 10, "timeframe": "15m", "source": "close"},
+    "ema_slow": {"type": "ema", "period": 50, "timeframe": "15m", "source": "close"},
+    "ema_fast_1h": {"type": "ema", "period": 20, "timeframe": "1h", "source": "close"},
+    "ema_slow_1h": {"type": "ema", "period": 50, "timeframe": "1h", "source": "close"}
   },
   "entry": {
     "long": {
@@ -45,9 +45,9 @@ results = engine.run()
     }
   },
   "exit": {
-    "take_profit_pct": 0.08,
-    "stop_loss_pct": 0.035,
-    "breakeven_trigger_pct": 0.015,
+    "take_profit_pct": 0.06,
+    "stop_loss_pct": 0.03,
+    "breakeven_trigger_pct": 0.02,
     "breakeven_lock_pct": 0.005
   }
 }
@@ -95,9 +95,9 @@ Compare an indicator against a fixed value:
 ```json
 {
   "exit": {
-    "take_profit_pct": 0.08,
-    "stop_loss_pct": 0.035,
-    "breakeven_trigger_pct": 0.015,
+    "take_profit_pct": 0.06,
+    "stop_loss_pct": 0.03,
+    "breakeven_trigger_pct": 0.02,
     "breakeven_lock_pct": 0.005,
     "trailing_stop_pct": 0.02,
     "trailing_stop_activation_pct": 0.03,

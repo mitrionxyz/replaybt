@@ -80,7 +80,7 @@ You can combine a trailing stop with a fixed take profit:
 MarketOrder(
     side=Side.LONG,
     take_profit_pct=0.10,                # cap at +10%
-    stop_loss_pct=0.035,                 # safety SL
+    stop_loss_pct=0.05,                  # safety SL
     trailing_stop_pct=0.02,              # trail 2%
     trailing_stop_activation_pct=0.04,   # activate at +4%
 )

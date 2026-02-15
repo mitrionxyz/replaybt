@@ -98,8 +98,8 @@ Per-symbol configuration with defaults and overrides.
 from replaybt import StrategyConfig
 
 config = StrategyConfig(
-    defaults={"tp": 0.08, "sl": 0.035},
-    overrides={"ETH": {"tp": 0.12, "sl": 0.04}},
+    defaults={"tp": 0.06, "sl": 0.03},
+    overrides={"ETH": {"tp": 0.08, "sl": 0.04}},
 )
 ```
 

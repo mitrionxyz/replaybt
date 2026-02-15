@@ -26,8 +26,8 @@ class BreakevenStrategy(Strategy):
             return MarketOrder(
                 side=Side.LONG,
                 take_profit_pct=0.08,
-                stop_loss_pct=0.035,
-                breakeven_trigger_pct=0.015,  # activate at +1.5%
+                stop_loss_pct=0.03,
+                breakeven_trigger_pct=0.02,   # activate at +2%
                 breakeven_lock_pct=0.005,     # move SL to +0.5%
             )
         return None
@@ -52,14 +52,14 @@ print(results.summary())
 
 ```
 Entry at $2,000 (LONG)
-  SL = $1,930 (3.5% below entry)
-  TP = $2,160 (8% above entry)
-  Breakeven trigger = $2,030 (+1.5%)
+  SL = $1,940 (3% below entry)
+  TP = $2,120 (6% above entry)
+  Breakeven trigger = $2,040 (+2%)
   Breakeven lock = $2,010 (+0.5%)
 
-Price rises to $2,035:
+Price rises to $2,045:
   → Breakeven activated!
-  → SL moves from $1,930 to $2,010
+  → SL moves from $1,940 to $2,010
 
 If price reverses:
   → Exit at $2,010 (BREAKEVEN reason)
@@ -81,7 +81,7 @@ Exit Breakdown:
 
 | Parameter | Description | Typical Value |
 |-----------|-------------|---------------|
-| `breakeven_trigger_pct` | Profit level that activates breakeven | 0.015 (1.5%) |
+| `breakeven_trigger_pct` | Profit level that activates breakeven | 0.02 (2%) |
 | `breakeven_lock_pct` | Where SL moves to after activation | 0.005 (0.5%) |
 
 The lock level must be less than the trigger level. Once activated, the breakeven is permanent for that position — the SL cannot move back down.
