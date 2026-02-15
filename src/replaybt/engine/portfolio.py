@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from ..data.types import Bar, Fill, Position, Trade, Side, ScaleInOrder
+from ..data.types import Bar, Fill, Position, Trade, Side
 from .execution import ExecutionModel
 from .orders import Order
 
@@ -39,9 +39,6 @@ class Portfolio:
 
         # Equity curve: list of (timestamp, equity) after each trade close
         self.equity_curve: List[Tuple[datetime, float]] = []
-
-        # Scale-in state
-        self.pending_scale_in: Optional[ScaleInOrder] = None
 
     @property
     def has_position(self) -> bool:
@@ -124,21 +121,53 @@ class Portfolio:
         )
         self.fills.append(fill)
 
-        # Set up scale-in if requested
-        if order.scale_in_enabled:
-            dip = order.scale_in_dip_pct
-            if order.side == Side.LONG:
-                limit_price = price * (1 - dip)
-            else:
-                limit_price = price * (1 + dip)
-            self.pending_scale_in = ScaleInOrder(
-                limit_price=limit_price,
-                side=order.side,
-                size_usd=size_usd * order.scale_in_size_pct,
-                max_bars=order.scale_in_timeout,
-                symbol=pos.symbol,
-            )
+        return fill
 
+    def merge_into_position(
+        self,
+        bar: Bar,
+        order,
+        limit_price: float,
+        is_maker: bool = True,
+    ) -> Fill:
+        """Merge a fill into the first existing position.
+
+        Averages entry price by size-weighted mean and increases position size.
+
+        Args:
+            bar: Current bar.
+            order: The LimitOrder being merged.
+            limit_price: Fill price for the merge.
+            is_maker: If True, charge maker_fee.
+
+        Returns:
+            Fill object for the merge entry.
+        """
+        pos = self.positions[0]
+        old_size = pos.size_usd
+        new_size = order.size_usd or self.default_size_usd
+        total_size = old_size + new_size
+
+        # Average entry price
+        pos.entry_price = (
+            pos.entry_price * old_size + limit_price * new_size
+        ) / total_size
+        pos.size_usd = total_size
+
+        fees = self.execution.calc_fees(new_size, is_maker=is_maker)
+        self.total_fees += fees
+
+        fill = Fill(
+            timestamp=bar.timestamp,
+            side=order.side,
+            price=limit_price,
+            size_usd=new_size,
+            symbol=pos.symbol,
+            fees=fees,
+            is_entry=True,
+            reason="MERGE",
+        )
+        self.fills.append(fill)
         return fill
 
     def close_position(
@@ -215,62 +244,6 @@ class Portfolio:
 
         return trade
 
-    def check_scale_in(self, bar: Bar) -> Optional[Fill]:
-        """Check and execute pending scale-in limit order.
-
-        Returns Fill if scale-in executed, None otherwise.
-        """
-        if not self.pending_scale_in or not self.positions:
-            if self.pending_scale_in and not self.positions:
-                # Position closed — cancel scale-in on TP, keep on SL
-                if self.trades and "TAKE_PROFIT" in self.trades[-1].reason:
-                    self.pending_scale_in = None
-            return None
-
-        scale = self.pending_scale_in
-        scale.bars_elapsed += 1
-
-        # Check limit fill
-        filled = self.execution.check_limit_fill(
-            scale.limit_price, scale.side, bar
-        )
-
-        if filled:
-            pos = self.positions[0]  # Scale into first position
-            old_size = pos.size_usd
-            new_size = scale.size_usd
-            total_size = old_size + new_size
-
-            # Average entry price
-            pos.entry_price = (
-                pos.entry_price * old_size + scale.limit_price * new_size
-            ) / total_size
-            pos.size_usd = total_size
-            pos.scale_in_filled = True
-
-            fees = self.execution.calc_fees(new_size, is_maker=True)
-            self.total_fees += fees
-
-            fill = Fill(
-                timestamp=bar.timestamp,
-                side=scale.side,
-                price=scale.limit_price,
-                size_usd=new_size,
-                symbol=scale.symbol,
-                fees=fees,
-                is_entry=True,
-                reason="SCALE_IN",
-            )
-            self.fills.append(fill)
-            self.pending_scale_in = None
-            return fill
-
-        # Timeout
-        if scale.bars_elapsed >= scale.max_bars:
-            self.pending_scale_in = None
-
-        return None
-
     def reset(self) -> None:
         """Reset portfolio to initial state."""
         self.equity = self.initial_equity
@@ -281,4 +254,3 @@ class Portfolio:
         self.fills.clear()
         self.total_fees = 0.0
         self.equity_curve.clear()
-        self.pending_scale_in = None

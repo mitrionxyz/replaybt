@@ -11,7 +11,7 @@ import pytest
 from replaybt.data.types import Bar, Side, Position
 from replaybt.data.providers.base import DataProvider
 from replaybt.engine.loop import BacktestEngine
-from replaybt.engine.orders import MarketOrder
+from replaybt.engine.orders import MarketOrder, LimitOrder, CancelPendingLimitsOrder
 from replaybt.strategy.declarative import (
     CompareCondition,
     CrossoverCondition,
@@ -335,8 +335,9 @@ class TestDeclarativeStrategy:
         assert order.breakeven_trigger_pct == 0.015
         assert order.breakeven_lock_pct == 0.005
 
-    def test_scale_in_on_order(self):
-        """Scale-in params on MarketOrder."""
+    def test_scale_in_via_on_fill(self):
+        """Scale-in config produces LimitOrder from on_fill."""
+        from replaybt.data.types import Fill
         config = _make_config(scale_in={
             "enabled": True,
             "dip_pct": 0.002,
@@ -345,16 +346,66 @@ class TestDeclarativeStrategy:
         })
         strat = DeclarativeStrategy(config)
 
-        prev = {"ema_fast": 10.0, "ema_slow": 11.0}
-        curr = {"ema_fast": 12.0, "ema_slow": 11.0}
+        # Simulate an entry fill
+        fill = Fill(
+            timestamp=datetime(2025, 1, 1),
+            side=Side.LONG,
+            price=100.0,
+            size_usd=10000.0,
+            is_entry=True,
+        )
+        result = strat.on_fill(fill)
 
-        strat._prev_values = prev
-        order = strat.on_bar(_bar(), curr, [])
+        assert isinstance(result, LimitOrder)
+        assert result.merge_position is True
+        assert result.limit_price == pytest.approx(100.0 * (1 - 0.002))
+        assert result.size_usd == 5000.0
+        assert result.timeout_bars == 48
 
-        assert order.scale_in_enabled is True
-        assert order.scale_in_dip_pct == 0.002
-        assert order.scale_in_size_pct == 0.5
-        assert order.scale_in_timeout == 48
+    def test_no_recursive_merge_on_fill(self):
+        """on_fill returns None for MERGE fills (no recursive scale-in)."""
+        from replaybt.data.types import Fill
+        config = _make_config(scale_in={"enabled": True})
+        strat = DeclarativeStrategy(config)
+
+        fill = Fill(
+            timestamp=datetime(2025, 1, 1),
+            side=Side.LONG,
+            price=99.8,
+            size_usd=5000.0,
+            is_entry=True,
+            reason="MERGE",
+        )
+        assert strat.on_fill(fill) is None
+
+    def test_on_exit_cancel_on_tp(self):
+        """on_exit returns CancelPendingLimitsOrder on take profit."""
+        from replaybt.data.types import Fill, Trade
+        config = _make_config(scale_in={"enabled": True})
+        strat = DeclarativeStrategy(config)
+
+        fill = Fill(
+            timestamp=datetime(2025, 1, 1),
+            side=Side.LONG,
+            price=108.0,
+            size_usd=10000.0,
+            is_entry=False,
+            reason="TAKE_PROFIT",
+        )
+        trade = Trade(
+            entry_time=datetime(2025, 1, 1),
+            exit_time=datetime(2025, 1, 2),
+            side=Side.LONG,
+            entry_price=100.0,
+            exit_price=108.0,
+            size_usd=10000.0,
+            pnl_usd=800.0,
+            pnl_pct=0.08,
+            fees=7.0,
+            reason="TAKE_PROFIT",
+        )
+        result = strat.on_exit(fill, trade)
+        assert isinstance(result, CancelPendingLimitsOrder)
 
     def test_no_signal_with_positions(self):
         """Skip when positions exist."""

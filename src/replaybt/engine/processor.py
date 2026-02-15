@@ -1,4 +1,4 @@
-"""BarProcessor: reusable 4-phase execution loop.
+"""BarProcessor: reusable execution loop.
 
 Extracted from BacktestEngine._process_bar() so both BacktestEngine
 (single-symbol) and MultiAssetEngine (multi-symbol) can share the
@@ -6,8 +6,7 @@ same execution logic without duplication.
 
 Per bar:
   Phase 1: Execute pending market orders at bar OPEN + adverse slippage
-  Phase 1b: Check pending limit orders for fills
-  Phase 2: Check scale-in limit orders
+  Phase 1b: Check pending limit orders for fills (incl. merge_position)
   Phase 3: Check exits (open gap FIRST, then High/Low vs SL/TP)
   Phase 3.5: Strategy-initiated exits
   Phase 4: Call strategy.on_bar() with COMPLETED bar -> sets pending for next bar
@@ -121,16 +120,34 @@ class BarProcessor:
         # ============================================================
         # PHASE 1b: Check pending limit orders for fills
         # ============================================================
-        filled_indices = []
-        for i, pending in enumerate(self._pending_limits):
-            if not self.portfolio.can_open():
-                break
-            # Direction check (unless hedging enabled)
-            if self._same_direction_only and self.portfolio.has_position:
-                existing_side = self.portfolio.positions[0].side
-                if pending.order.side != existing_side:
-                    filled_indices.append(i)  # Remove conflicting
+        # Snapshot: iterate over current limits only; on_fill callbacks
+        # may append new limits (e.g. merge orders) which we must NOT
+        # remove during this bar's cleanup.
+        limits_snapshot = list(self._pending_limits)
+        to_remove = set()
+        for i, pending in enumerate(limits_snapshot):
+            is_merge = pending.order.merge_position
+
+            if is_merge:
+                # Merge orders need an existing position to merge into
+                if not self.portfolio.has_position:
+                    # No position — tick timeout but don't fill
+                    pending.bars_elapsed += 1
+                    if (
+                        pending.order.timeout_bars > 0
+                        and pending.bars_elapsed >= pending.order.timeout_bars
+                    ):
+                        to_remove.add(id(pending))
                     continue
+            else:
+                if not self.portfolio.can_open():
+                    break
+                # Direction check (unless hedging enabled)
+                if self._same_direction_only and self.portfolio.has_position:
+                    existing_side = self.portfolio.positions[0].side
+                    if pending.order.side != existing_side:
+                        to_remove.add(id(pending))
+                        continue
 
             pending.bars_elapsed += 1
 
@@ -144,35 +161,35 @@ class BarProcessor:
             if self.execution.check_limit_fill(
                 pending.order.limit_price, pending.order.side, bar
             ):
-                fill = self.portfolio.open_position(
-                    bar, pending.order,
-                    apply_slippage=False,
-                    limit_price=pending.order.limit_price,
-                    is_maker=pending.order.use_maker_fee,
-                )
+                if is_merge:
+                    fill = self.portfolio.merge_into_position(
+                        bar, pending.order,
+                        limit_price=pending.order.limit_price,
+                        is_maker=pending.order.use_maker_fee,
+                    )
+                else:
+                    fill = self.portfolio.open_position(
+                        bar, pending.order,
+                        apply_slippage=False,
+                        limit_price=pending.order.limit_price,
+                        is_maker=pending.order.use_maker_fee,
+                    )
                 self._emit("fill", fill)
                 follow_up = self.strategy.on_fill(fill)
                 self._handle_follow_up(follow_up)
-                filled_indices.append(i)
+                to_remove.add(id(pending))
                 just_opened = True
             elif (
                 pending.order.timeout_bars > 0
                 and pending.bars_elapsed >= pending.order.timeout_bars
             ):
-                filled_indices.append(i)  # Timed out
+                to_remove.add(id(pending))
 
-        # Remove filled/timed-out limit orders (reverse to preserve indices)
-        for i in reversed(filled_indices):
-            self._pending_limits.pop(i)
-
-        # ============================================================
-        # PHASE 2: Check scale-in limit orders
-        # ============================================================
-        scale_fill = self.portfolio.check_scale_in(bar)
-        if scale_fill:
-            self._emit("fill", scale_fill)
-            follow_up = self.strategy.on_fill(scale_fill)
-            self._handle_follow_up(follow_up)
+        # Remove filled/timed-out limit orders (by identity, safe with appends)
+        if to_remove:
+            self._pending_limits = [
+                p for p in self._pending_limits if id(p) not in to_remove
+            ]
 
         # ============================================================
         # PHASE 3: Check exits (gap protection + SL/TP)

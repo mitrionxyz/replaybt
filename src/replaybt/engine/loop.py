@@ -1,16 +1,16 @@
-"""BacktestEngine: the 4-phase execution loop.
+"""BacktestEngine: the execution loop.
 
 This is the core of replaybt. The engine enforces realistic execution:
 
 Per bar:
   Phase 1: Execute pending market orders at bar OPEN + adverse slippage
-  Phase 1b: Check pending limit orders for fills
-  Phase 2: Check scale-in limit orders
+  Phase 1b: Check pending limit orders for fills (incl. merge_position)
   Phase 3: Check exits (open gap FIRST, then High/Low vs SL/TP)
+  Phase 3.5: Strategy-initiated exits
   Phase 4: Call strategy.on_bar() with COMPLETED bar → sets pending for next bar
 
 The strategy NEVER sees current-bar data during signal generation.
-The strategy CANNOT bypass the 4-phase loop.
+The strategy CANNOT bypass the execution loop.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ from typing import List, Optional
 from replaybt.data.types import Bar, Fill, Position, Side
 from replaybt.data.providers.base import DataProvider
 from replaybt.engine.loop import BacktestEngine
-from replaybt.engine.orders import LimitOrder, MarketOrder
+from replaybt.engine.orders import LimitOrder, MarketOrder, CancelPendingLimitsOrder
 from replaybt.strategy.base import Strategy
 
 
@@ -268,10 +268,10 @@ class TestLimitOrderExecution:
         # Must NOT fill on bar 0 (signal bar), should fill on bar 2
         assert fills[0].timestamp == bars[2].timestamp
 
-    def test_limit_with_scale_in(self):
-        """Limit order entry can have scale-in configured."""
+    def test_limit_with_merge_position(self):
+        """Limit order entry triggers on_fill which returns merge LimitOrder."""
 
-        class LimitWithScaleInStrategy(Strategy):
+        class LimitWithMergeStrategy(Strategy):
             def __init__(self):
                 self.bars_seen = 0
 
@@ -283,22 +283,33 @@ class TestLimitOrderExecution:
                         limit_price=98.0,
                         take_profit_pct=0.10,
                         stop_loss_pct=0.05,
-                        scale_in_enabled=True,
-                        scale_in_dip_pct=0.01,
-                        scale_in_size_pct=0.5,
-                        scale_in_timeout=10,
+                    )
+                return None
+
+            def on_fill(self, fill):
+                if fill.is_entry and fill.reason != "MERGE":
+                    # Scale-in: 1% dip, 50% size, merge into position
+                    limit_price = fill.price * (1 - 0.01)  # 97.02
+                    return LimitOrder(
+                        side=fill.side,
+                        limit_price=limit_price,
+                        timeout_bars=10,
+                        size_usd=fill.size_usd * 0.5,
+                        use_maker_fee=True,
+                        merge_position=True,
+                        cancel_pending_limits=True,
                     )
                 return None
 
         bars = [
             make_bar(0, 100, 101, 99, 100),
             make_bar(1, 99, 99.5, 97, 98.5),    # Limit fills at 98
-            make_bar(2, 98.5, 99, 96.5, 97),     # Scale-in limit at 97.02 → fills
+            make_bar(2, 98.5, 99, 96.5, 97),     # Merge limit at 97.02 → fills
             make_bar(3, 97, 98, 96.5, 97.5),
         ]
 
         engine = BacktestEngine(
-            strategy=LimitWithScaleInStrategy(),
+            strategy=LimitWithMergeStrategy(),
             data=ListProvider(bars),
             config={"slippage": 0.0, "taker_fee": 0.0, "maker_fee": 0.0},
         )
@@ -307,8 +318,71 @@ class TestLimitOrderExecution:
         engine.on("fill", lambda f: fills.append(f))
         engine.run()
 
-        # Should have entry + scale-in
-        entry_fills = [f for f in fills if f.reason != "SCALE_IN" and f.is_entry]
-        scale_fills = [f for f in fills if f.reason == "SCALE_IN"]
+        # Should have entry + merge
+        entry_fills = [f for f in fills if f.reason != "MERGE" and f.is_entry]
+        merge_fills = [f for f in fills if f.reason == "MERGE"]
         assert len(entry_fills) >= 1
         assert entry_fills[0].price == 98.0
+        assert len(merge_fills) >= 1
+
+    def test_market_order_with_merge_position(self):
+        """MarketOrder entry triggers on_fill which returns merge LimitOrder."""
+
+        class MarketWithMergeStrategy(Strategy):
+            def __init__(self):
+                self.bars_seen = 0
+
+            def on_bar(self, bar, indicators, positions):
+                self.bars_seen += 1
+                if self.bars_seen == 1 and not positions:
+                    return MarketOrder(
+                        side=Side.LONG,
+                        take_profit_pct=0.10,
+                        stop_loss_pct=0.05,
+                    )
+                return None
+
+            def on_fill(self, fill):
+                if fill.is_entry and fill.reason != "MERGE":
+                    # Scale-in: 0.2% dip, 50% size
+                    limit_price = fill.price * (1 - 0.002)
+                    return LimitOrder(
+                        side=fill.side,
+                        limit_price=limit_price,
+                        timeout_bars=10,
+                        size_usd=fill.size_usd * 0.5,
+                        use_maker_fee=True,
+                        merge_position=True,
+                    )
+                return None
+
+        bars = [
+            make_bar(0, 100, 101, 99, 100),     # Signal bar
+            make_bar(1, 100, 101, 99, 100.5),   # MarketOrder fills at open=100
+            make_bar(2, 99.5, 100, 99, 99.5),   # Merge limit at 99.8 → low=99 fills
+            make_bar(3, 99.5, 100, 99, 99.8),
+        ]
+
+        engine = BacktestEngine(
+            strategy=MarketWithMergeStrategy(),
+            data=ListProvider(bars),
+            config={"slippage": 0.0, "taker_fee": 0.0, "maker_fee": 0.0},
+        )
+
+        fills = []
+        engine.on("fill", lambda f: fills.append(f))
+        engine.run()
+
+        # Should have market entry + merge
+        entry_fills = [f for f in fills if f.reason != "MERGE" and f.is_entry]
+        merge_fills = [f for f in fills if f.reason == "MERGE"]
+        assert len(entry_fills) == 1
+        assert entry_fills[0].price == 100.0  # Market fill at bar open
+        assert len(merge_fills) == 1
+        assert merge_fills[0].price == pytest.approx(100.0 * (1 - 0.002))
+
+        # Position should have merged size and averaged entry
+        pos = engine.portfolio.positions[0]
+        assert pos.size_usd == 15000.0  # 10000 + 5000
+        expected_entry = (100.0 * 10000 + 99.8 * 5000) / 15000
+        assert pos.entry_price == pytest.approx(expected_entry)

@@ -54,8 +54,6 @@ class Position:
     breakeven_activated: bool = False
     breakeven_trigger: float = 0.0
     breakeven_lock: float = 0.0
-    # Scale-in tracking
-    scale_in_filled: bool = False
 
     @property
     def is_long(self) -> bool:
@@ -107,12 +105,3 @@ class PendingOrder:
     max_bars: int = 0
 
 
-@dataclass(slots=True)
-class ScaleInOrder:
-    """A pending scale-in limit order."""
-    limit_price: float
-    side: Side
-    size_usd: float
-    bars_elapsed: int = 0
-    max_bars: int = 48
-    symbol: str = ""

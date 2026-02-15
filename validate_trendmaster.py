@@ -22,8 +22,8 @@ from backtest_combined_clean import TrendMasterBacktest
 
 # replaybt
 from replaybt import (
-    BacktestEngine, Bar, Side, Strategy, MarketOrder,
-    DataProvider, BacktestResults,
+    BacktestEngine, Bar, Side, Strategy, MarketOrder, LimitOrder,
+    CancelPendingLimitsOrder, DataProvider, BacktestResults,
 )
 
 DATA_DIR = Path.home() / "trendtradingstrategyv1" / "data"
@@ -113,10 +113,6 @@ class TrendMasterReplaybt(Strategy):
                         stop_loss_pct=self.cfg['STOP_LOSS_PCT'],
                         breakeven_trigger_pct=self.cfg['BREAKEVEN_TRIGGER'],
                         breakeven_lock_pct=self.cfg['BREAKEVEN_LOCK'],
-                        scale_in_enabled=self.cfg.get('SCALE_IN_ENABLED', False),
-                        scale_in_dip_pct=self.cfg.get('SCALE_IN_DIP', 0.002),
-                        scale_in_size_pct=self.cfg.get('SCALE_IN_SIZE_PCT', 0.5),
-                        scale_in_timeout=self.cfg.get('SCALE_IN_TIMEOUT', 48),
                     )
                 elif trend_down and bearish_cross and close_entry < ema_fast_entry:
                     self.prev_bullish = curr_bullish
@@ -126,17 +122,36 @@ class TrendMasterReplaybt(Strategy):
                         stop_loss_pct=self.cfg['STOP_LOSS_PCT'],
                         breakeven_trigger_pct=self.cfg['BREAKEVEN_TRIGGER'],
                         breakeven_lock_pct=self.cfg['BREAKEVEN_LOCK'],
-                        scale_in_enabled=self.cfg.get('SCALE_IN_ENABLED', False),
-                        scale_in_dip_pct=self.cfg.get('SCALE_IN_DIP', 0.002),
-                        scale_in_size_pct=self.cfg.get('SCALE_IN_SIZE_PCT', 0.5),
-                        scale_in_timeout=self.cfg.get('SCALE_IN_TIMEOUT', 48),
                     )
 
         self.prev_bullish = curr_bullish
         return None
 
+    def on_fill(self, fill):
+        if not fill.is_entry or fill.reason == "MERGE":
+            return None
+        if not self.cfg.get('SCALE_IN_ENABLED', False):
+            return None
+        dip = self.cfg.get('SCALE_IN_DIP', 0.002)
+        if fill.side == Side.LONG:
+            limit_price = fill.price * (1 - dip)
+        else:
+            limit_price = fill.price * (1 + dip)
+        return LimitOrder(
+            side=fill.side,
+            limit_price=limit_price,
+            timeout_bars=self.cfg.get('SCALE_IN_TIMEOUT', 48),
+            size_usd=fill.size_usd * self.cfg.get('SCALE_IN_SIZE_PCT', 0.5),
+            use_maker_fee=True,
+            merge_position=True,
+            cancel_pending_limits=True,
+        )
+
     def on_exit(self, fill, trade):
         self.just_closed = True
+        if self.cfg.get('SCALE_IN_ENABLED', False) and 'TAKE_PROFIT' in trade.reason:
+            return CancelPendingLimitsOrder()
+        return None
 
 
 class ListProvider(DataProvider):

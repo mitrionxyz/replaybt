@@ -26,12 +26,6 @@ class Order:
     # Cancel pending limit orders when this order is processed
     cancel_pending_limits: bool = False
 
-    # Scale-in configuration
-    scale_in_enabled: bool = False
-    scale_in_dip_pct: float = 0.002       # -0.2% dip
-    scale_in_size_pct: float = 0.5        # 50% of main
-    scale_in_timeout: int = 48            # bars
-
 
 @dataclass(slots=True)
 class MarketOrder(Order):
@@ -46,6 +40,7 @@ class LimitOrder(Order):
     timeout_bars: int = 0  # 0 = no timeout
     use_maker_fee: bool = True  # False = use taker fee (e.g. DCA fills)
     min_positions: int = 0  # only fill when >= N positions exist (e.g. DCA needs 1)
+    merge_position: bool = False  # merge into existing position instead of opening new
 
 
 class CancelPendingLimitsOrder:

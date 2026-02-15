@@ -56,10 +56,10 @@ class Strategy(ABC):
         pass
 
     def on_fill(self, fill: Fill) -> Optional[Order]:
-        """Called when an order fills (entry or scale-in).
+        """Called when an order fills (entry or merge).
 
         Override to track fills. Can return a follow-up Order:
-        - LimitOrder: added to pending limits (e.g. DCA scale-in)
+        - LimitOrder: added to pending limits (e.g. DCA or merge_position)
         - MarketOrder: set as pending for next bar
         """
         return None

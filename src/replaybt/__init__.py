@@ -32,7 +32,7 @@ from .engine.processor import BarProcessor
 from .engine.multi import MultiAssetEngine
 
 # Data types
-from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason, PendingOrder, ScaleInOrder
+from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason, PendingOrder
 
 # Data providers
 from .data.providers.base import DataProvider
@@ -95,7 +95,6 @@ __all__ = [
     "OrderType",
     "ExitReason",
     "PendingOrder",
-    "ScaleInOrder",
     "DataProvider",
     "CSVProvider",
     "ReplayProvider",

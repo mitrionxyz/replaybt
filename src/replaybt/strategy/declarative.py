@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
 from ..data.types import Bar, Fill, Position, Side, Trade
-from ..engine.orders import MarketOrder, Order
+from ..engine.orders import MarketOrder, LimitOrder, Order, CancelPendingLimitsOrder
 from .base import Strategy
 
 
@@ -226,7 +226,7 @@ class DeclarativeStrategy(Strategy):
         return order
 
     def _build_order(self, side: Side) -> MarketOrder:
-        """Build a MarketOrder from exit/scale_in config."""
+        """Build a MarketOrder from exit config."""
         kwargs: Dict[str, Any] = {"side": side}
 
         # TP/SL
@@ -241,17 +241,35 @@ class DeclarativeStrategy(Strategy):
         if "breakeven_lock_pct" in self._exit:
             kwargs["breakeven_lock_pct"] = self._exit["breakeven_lock_pct"]
 
-        # Scale-in
-        if self._scale_in.get("enabled", False):
-            kwargs["scale_in_enabled"] = True
-            if "dip_pct" in self._scale_in:
-                kwargs["scale_in_dip_pct"] = self._scale_in["dip_pct"]
-            if "size_pct" in self._scale_in:
-                kwargs["scale_in_size_pct"] = self._scale_in["size_pct"]
-            if "timeout" in self._scale_in:
-                kwargs["scale_in_timeout"] = self._scale_in["timeout"]
-
         return MarketOrder(**kwargs)
+
+    def on_fill(self, fill: Fill):
+        """Set up scale-in limit order on entry fill."""
+        if not fill.is_entry or fill.reason == "MERGE":
+            return None
+        si = self._scale_in
+        if not si.get("enabled", False):
+            return None
+        dip = si.get("dip_pct", 0.002)
+        if fill.side == Side.LONG:
+            limit_price = fill.price * (1 - dip)
+        else:
+            limit_price = fill.price * (1 + dip)
+        return LimitOrder(
+            side=fill.side,
+            limit_price=limit_price,
+            timeout_bars=si.get("timeout", 48),
+            size_usd=fill.size_usd * si.get("size_pct", 0.5),
+            use_maker_fee=True,
+            merge_position=True,
+            cancel_pending_limits=True,
+        )
+
+    def on_exit(self, fill: Fill, trade: Trade):
+        """Cancel pending scale-in on take profit."""
+        if self._scale_in.get("enabled", False) and "TAKE_PROFIT" in trade.reason:
+            return CancelPendingLimitsOrder()
+        return None
 
     @classmethod
     def from_json(cls, path: str) -> "DeclarativeStrategy":
