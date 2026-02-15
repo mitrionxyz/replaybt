@@ -442,12 +442,22 @@ class BacktestAuditor:
             ))
 
     def _check_scale_in_bias(self) -> None:
-        """INFO: Scale-in should not fill on same bar as entry."""
+        """INFO: Scale-in / merge should not fill on same bar as entry."""
         has_scale_in = bool(re.search(
-            r"scale_in|pending_scale", self.source, re.IGNORECASE,
+            r"scale_in|pending_scale|merge_position", self.source, re.IGNORECASE,
         ))
         if not has_scale_in:
             return
+        uses_merge = bool(re.search(
+            r"merge_position\s*=\s*True|merge_into_position",
+            self.source, re.IGNORECASE,
+        ))
+        uses_on_fill = bool(re.search(
+            r"def\s+on_fill|\.on_fill\(",
+            self.source,
+        ))
+        if uses_merge or uses_on_fill:
+            return  # Engine handles ordering via Phase 1b snapshot
         setup_before_check = bool(re.search(
             r"pending_scale_in\s*=\s*\{.*\}.*\n.*\n.*PHASE\s*1\.5|"
             r"pending_order\s*=\s*None\s*\n\s*\n.*scale_in",
@@ -463,8 +473,8 @@ class BacktestAuditor:
                     " on the same bar as entry"
                 ),
                 fix=(
-                    "Scale-in limit check should happen AFTER"
-                    " entry execution in the loop"
+                    "Use on_fill() -> LimitOrder(merge_position=True)"
+                    " to let the engine handle ordering"
                 ),
             ))
 
