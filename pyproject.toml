@@ -14,7 +14,7 @@ authors = [
 ]
 keywords = ["backtesting", "trading", "algorithmic-trading", "crypto"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Financial and Insurance Industry",
     "License :: OSI Approved :: MIT License",
@@ -22,12 +22,18 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
     "pandas>=2.0",
     "numpy>=1.24",
 ]
+
+[project.urls]
+Homepage = "https://github.com/sirmoremoney/replaybt"
+Source = "https://github.com/sirmoremoney/replaybt"
+Issues = "https://github.com/sirmoremoney/replaybt/issues"
 
 [project.optional-dependencies]
 live = ["aiohttp>=3.8", "websockets>=11.0"]

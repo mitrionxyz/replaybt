@@ -1,0 +1,35 @@
+{
+  "name": "TrendMaster",
+  "indicators": {
+    "ema_fast": {"type": "ema", "period": 15, "timeframe": "30m", "source": "close"},
+    "ema_slow": {"type": "ema", "period": 35, "timeframe": "30m", "source": "close"},
+    "ema_fast_1h": {"type": "ema", "period": 15, "timeframe": "1h", "source": "close"},
+    "ema_slow_1h": {"type": "ema", "period": 35, "timeframe": "1h", "source": "close"}
+  },
+  "entry": {
+    "long": {
+      "conditions": [
+        {"type": "crossover", "fast": "ema_fast", "slow": "ema_slow"},
+        {"type": "above", "left": "ema_fast_1h", "right": "ema_slow_1h"}
+      ]
+    },
+    "short": {
+      "conditions": [
+        {"type": "crossunder", "fast": "ema_fast", "slow": "ema_slow"},
+        {"type": "below", "left": "ema_fast_1h", "right": "ema_slow_1h"}
+      ]
+    }
+  },
+  "exit": {
+    "take_profit_pct": 0.08,
+    "stop_loss_pct": 0.035,
+    "breakeven_trigger_pct": 0.015,
+    "breakeven_lock_pct": 0.005
+  },
+  "scale_in": {
+    "enabled": true,
+    "dip_pct": 0.002,
+    "size_pct": 0.5,
+    "timeout": 48
+  }
+}
