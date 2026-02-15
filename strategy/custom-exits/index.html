@@ -2138,9 +2138,9 @@
 <p>Move the stop loss to lock in a small profit once the position reaches a threshold:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">MarketOrder</span><span class="p">(</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">LONG</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">take_profit_pct</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">stop_loss_pct</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">breakeven_trigger_pct</span><span class="o">=</span><span class="mf">0.015</span><span class="p">,</span>  <span class="c1"># activate at +1.5%</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">take_profit_pct</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">stop_loss_pct</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">breakeven_trigger_pct</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>   <span class="c1"># activate at +2%</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">breakeven_lock_pct</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span>     <span class="c1"># move SL to +0.5%</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
 </code></pre></div>
@@ -2231,10 +2231,10 @@
 <p>All exit types can be combined on a single order:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">MarketOrder</span><span class="p">(</span>
 <a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>    <span class="n">side</span><span class="o">=</span><span class="n">Side</span><span class="o">.</span><span class="n">LONG</span><span class="p">,</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">take_profit_pct</span><span class="o">=</span><span class="mf">0.08</span><span class="p">,</span>             <span class="c1"># fixed TP</span>
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">stop_loss_pct</span><span class="o">=</span><span class="mf">0.035</span><span class="p">,</span>              <span class="c1"># fixed SL</span>
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">breakeven_trigger_pct</span><span class="o">=</span><span class="mf">0.015</span><span class="p">,</span>      <span class="c1"># breakeven at +1.5%</span>
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">breakeven_lock_pct</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span>         <span class="c1"># lock at +0.5%</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">take_profit_pct</span><span class="o">=</span><span class="mf">0.06</span><span class="p">,</span>             <span class="c1"># fixed TP</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">stop_loss_pct</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span>              <span class="c1"># fixed SL</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">breakeven_trigger_pct</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>      <span class="c1"># breakeven at +2%</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">breakeven_lock_pct</span><span class="o">=</span><span class="mf">0.005</span><span class="p">,</span>        <span class="c1"># lock at +0.5%</span>
 <a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">trailing_stop_pct</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span>           <span class="c1"># trail 2% below peak</span>
 <a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">trailing_stop_activation_pct</span><span class="o">=</span><span class="mf">0.04</span><span class="p">,</span> <span class="c1"># activate at +4%</span>
 <a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">partial_tp_pct</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>               <span class="c1"># close 50% at TP</span>
