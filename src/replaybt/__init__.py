@@ -28,6 +28,8 @@ from .engine.execution import ExecutionModel
 from .engine.portfolio import Portfolio
 from .engine.orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
 from .engine.step import StepEngine, StepObservation, StepResult
+from .engine.processor import BarProcessor
+from .engine.multi import MultiAssetEngine
 
 # Data types
 from .data.types import Bar, Fill, Position, Trade, Side, OrderType, ExitReason, PendingOrder, ScaleInOrder
@@ -60,6 +62,7 @@ from .strategy.declarative import DeclarativeStrategy
 # Reporting
 from .reporting.metrics import BacktestResults
 from .reporting.monthly import MonthStats, monthly_breakdown, format_monthly_table
+from .reporting.multi import MultiAssetResults
 
 # Validation
 from .validation.auditor import BacktestAuditor, Issue, audit_file
@@ -81,6 +84,8 @@ __all__ = [
     "StepEngine",
     "StepObservation",
     "StepResult",
+    "BarProcessor",
+    "MultiAssetEngine",
     # Data
     "Bar",
     "Fill",
@@ -120,6 +125,7 @@ __all__ = [
     "MonthStats",
     "monthly_breakdown",
     "format_monthly_table",
+    "MultiAssetResults",
     # Validation
     "BacktestAuditor",
     "Issue",

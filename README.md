@@ -30,6 +30,7 @@ replaybt enforces this by design:
 - **Per-symbol configs** — `StrategyConfig` with defaults + per-symbol overrides
 - **Validation suite** — static bias auditor (11 checks), +1 bar delay test, out-of-sample split
 - **Parallel optimization** — `ParameterSweep` with multiprocessing across all CPU cores
+- **Multi-asset** — `MultiAssetEngine` runs multiple symbols in a time-synchronized loop with portfolio-level metrics
 - **Live-ready** — async data providers for Hyperliquid and Lighter exchanges
 
 ## Install
@@ -119,6 +120,7 @@ Working examples are in the [`examples/`](examples/) directory:
 | [`03_step_engine_rl.py`](examples/03_step_engine_rl.py) | RL agent with gym-like step/reset API |
 | [`04_parameter_sweep.py`](examples/04_parameter_sweep.py) | Parallel TP/SL optimization with multiprocessing |
 | [`05_validation.py`](examples/05_validation.py) | Static auditor + delay test + OOS split |
+| [`06_multi_asset.py`](examples/06_multi_asset.py) | Multi-asset backtest with per-symbol config and exposure cap |
 
 ## Indicators
 
@@ -200,6 +202,69 @@ config.get("tp", symbol="ETH")  # 0.12
 config.get("tp", symbol="SOL")  # 0.08 (falls back to default)
 ```
 
+## Multi-Asset Backtesting
+
+Run the same strategy across multiple symbols in a single time-synchronized loop. Unlike running separate `BacktestEngine` instances, `MultiAssetEngine` merges bars chronologically and produces portfolio-level metrics that capture correlated drawdowns.
+
+```python
+from replaybt import MultiAssetEngine, CSVProvider, Strategy, MarketOrder, Side
+
+
+class MyStrategy(Strategy):
+    def configure(self, config):
+        self._prev = {}
+
+    def on_bar(self, bar, indicators, positions):
+        # bar.symbol tells you which asset this bar is for
+        # positions are per-symbol (isolated)
+        sym = bar.symbol
+        fast = indicators.get("ema_fast")
+        slow = indicators.get("ema_slow")
+        prev = self._prev.get(sym)
+        self._prev[sym] = (fast, slow)
+        if not prev or prev[0] is None:
+            return None
+        if fast > slow and prev[0] <= prev[1] and not positions:
+            return MarketOrder(side=Side.LONG, take_profit_pct=0.05, stop_loss_pct=0.03)
+        return None
+
+
+engine = MultiAssetEngine(
+    strategy=MyStrategy(),
+    assets={
+        "ETH": CSVProvider("ETH_1m.csv", symbol_name="ETH"),
+        "SOL": CSVProvider("SOL_1m.csv", symbol_name="SOL"),
+    },
+    config={
+        "initial_equity": 10_000,  # per symbol
+        "indicators": {
+            "ema_fast": {"type": "ema", "period": 15, "source": "close"},
+            "ema_slow": {"type": "ema", "period": 35, "source": "close"},
+        },
+        # Per-symbol overrides
+        "symbol_configs": {
+            "ETH": {
+                "indicators": {
+                    "ema_fast": {"type": "ema", "period": 10, "source": "close"},
+                    "ema_slow": {"type": "ema", "period": 30, "source": "close"},
+                },
+            },
+        },
+        # Optional: portfolio-level exposure cap
+        "max_total_exposure_usd": 30_000,
+    },
+)
+results = engine.run()
+print(results.summary())       # combined + per-symbol table
+print(results.monthly_table())  # combined monthly PnL
+```
+
+`MultiAssetResults` provides:
+- **Combined equity curve** — summed across symbols at each timestamp
+- **Combined max drawdown** — peak-to-trough on the combined curve (captures correlation)
+- **Per-symbol results** — individual `BacktestResults` via `results.per_symbol["ETH"]`
+- **Combined monthly breakdown** — all trades merged chronologically
+
 ## Validation
 
 ### Static Auditor
@@ -276,6 +341,7 @@ df = results.to_dataframe()
 | Class | Description |
 |-------|-------------|
 | `BacktestEngine` | Main backtest runner — takes strategy + data + config, returns `BacktestResults` |
+| `MultiAssetEngine` | Multi-symbol runner — time-synchronized loop with combined metrics |
 | `StepEngine` | Gym-like step/reset interface for RL agents |
 | `ExecutionModel` | Handles slippage, fees, gap protection |
 | `Portfolio` | Tracks positions, equity, and trade history |
@@ -310,6 +376,7 @@ df = results.to_dataframe()
 | Class | Description |
 |-------|-------------|
 | `BacktestResults` | PnL, drawdown, win rate, fees, equity curve, monthly breakdown |
+| `MultiAssetResults` | Combined portfolio metrics + per-symbol `BacktestResults` |
 
 ### Validation
 
