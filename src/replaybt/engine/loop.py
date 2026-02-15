@@ -25,7 +25,7 @@ from ..reporting.metrics import BacktestResults
 from .execution import ExecutionModel
 from .orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
 from .portfolio import Portfolio
-from .processor import BarProcessor, _PendingLimit  # noqa: F401 — re-export for StepEngine
+from .processor import BarProcessor, _PendingLimit, _PendingStop  # noqa: F401 — re-export for StepEngine
 
 
 class BacktestEngine:
@@ -128,6 +128,14 @@ class BacktestEngine:
     @_pending_limits.setter
     def _pending_limits(self, value):
         self._processor._pending_limits = value
+
+    @property
+    def _pending_stops(self):
+        return self._processor._pending_stops
+
+    @_pending_stops.setter
+    def _pending_stops(self, value):
+        self._processor._pending_stops = value
 
     # Behavior flags (read-only, exposed for tests/introspection)
     @property

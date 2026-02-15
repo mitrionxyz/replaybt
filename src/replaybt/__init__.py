@@ -26,7 +26,7 @@ from .version import __version__
 from .engine.loop import BacktestEngine
 from .engine.execution import ExecutionModel
 from .engine.portfolio import Portfolio
-from .engine.orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
+from .engine.orders import Order, MarketOrder, LimitOrder, StopOrder, CancelPendingLimitsOrder
 from .engine.step import StepEngine, StepObservation, StepResult
 from .engine.processor import BarProcessor
 from .engine.multi import MultiAssetEngine
@@ -80,6 +80,7 @@ __all__ = [
     "Order",
     "MarketOrder",
     "LimitOrder",
+    "StopOrder",
     "CancelPendingLimitsOrder",
     "StepEngine",
     "StepObservation",

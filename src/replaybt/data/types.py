@@ -16,6 +16,7 @@ class Side(str, Enum):
 class OrderType(str, Enum):
     MARKET = "MARKET"
     LIMIT = "LIMIT"
+    STOP = "STOP"
 
 
 class ExitReason(str, Enum):
@@ -25,6 +26,9 @@ class ExitReason(str, Enum):
     TAKE_PROFIT_GAP = "TAKE_PROFIT_GAP"
     BREAKEVEN = "BREAKEVEN"
     BREAKEVEN_GAP = "BREAKEVEN_GAP"
+    TRAILING_STOP = "TRAILING_STOP"
+    TRAILING_STOP_GAP = "TRAILING_STOP_GAP"
+    PARTIAL_TP = "PARTIAL_TP"
     SIGNAL = "SIGNAL"
 
 
@@ -54,6 +58,16 @@ class Position:
     breakeven_activated: bool = False
     breakeven_trigger: float = 0.0
     breakeven_lock: float = 0.0
+    # Trailing stop
+    trailing_stop_pct: float = 0.0
+    trailing_stop_activation_pct: float = 0.0
+    position_high: float = 0.0
+    position_low: float = 0.0
+    trailing_stop_activated: bool = False
+    # Partial take profit
+    partial_tp_pct: float = 0.0
+    partial_tp_new_tp_pct: float = 0.0
+    partial_tp_done: bool = False
 
     @property
     def is_long(self) -> bool:
@@ -88,6 +102,7 @@ class Trade:
     fees: float
     reason: str
     symbol: str = ""
+    is_partial: bool = False
 
 
 @dataclass(slots=True)

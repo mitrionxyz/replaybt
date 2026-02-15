@@ -23,6 +23,14 @@ class Order:
     breakeven_trigger_pct: Optional[float] = None  # e.g. 0.015 = +1.5%
     breakeven_lock_pct: Optional[float] = None      # e.g. 0.005 = +0.5%
 
+    # Trailing stop
+    trailing_stop_pct: Optional[float] = None       # distance from peak/trough (e.g. 0.05 = 5%)
+    trailing_stop_activation_pct: Optional[float] = None  # min profit to activate (None/0 = immediate)
+
+    # Partial take profit
+    partial_tp_pct: Optional[float] = None        # fraction to close at TP (0.5 = 50%)
+    partial_tp_new_tp_pct: Optional[float] = None  # new TP% for remainder after partial
+
     # Cancel pending limit orders when this order is processed
     cancel_pending_limits: bool = False
 
@@ -41,6 +49,19 @@ class LimitOrder(Order):
     use_maker_fee: bool = True  # False = use taker fee (e.g. DCA fills)
     min_positions: int = 0  # only fill when >= N positions exist (e.g. DCA needs 1)
     merge_position: bool = False  # merge into existing position instead of opening new
+
+
+@dataclass(slots=True)
+class StopOrder(Order):
+    """Stop order — fills when price breaks through stop_price.
+
+    LONG stop: fills when bar.high >= stop_price (breakout above).
+    SHORT stop: fills when bar.low <= stop_price (breakdown below).
+    Becomes market order on trigger: taker fee + slippage.
+    Gap-through: if bar opens past stop_price, fill at open (worse).
+    """
+    stop_price: float = 0.0
+    timeout_bars: int = 0
 
 
 class CancelPendingLimitsOrder:

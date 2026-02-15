@@ -21,7 +21,7 @@ from ..data.types import Bar, Fill, Position, Trade, Side
 from ..indicators.base import IndicatorManager
 from ..strategy.base import Strategy
 from .execution import ExecutionModel
-from .orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
+from .orders import Order, MarketOrder, LimitOrder, StopOrder, CancelPendingLimitsOrder
 from .portfolio import Portfolio
 
 
@@ -29,6 +29,13 @@ from .portfolio import Portfolio
 class _PendingLimit:
     """Internal tracker for a pending limit order."""
     order: LimitOrder
+    bars_elapsed: int = 0
+
+
+@dataclass(slots=True)
+class _PendingStop:
+    """Internal tracker for a pending stop order."""
+    order: StopOrder
     bars_elapsed: int = 0
 
 
@@ -72,6 +79,9 @@ class BarProcessor:
         # Pending limit orders (checked each bar until fill or timeout)
         self._pending_limits: List[_PendingLimit] = []
 
+        # Pending stop orders (checked each bar until fill or timeout)
+        self._pending_stops: List[_PendingStop] = []
+
     def _emit(self, event: str, *args) -> None:
         for cb in self._callbacks.get(event, []):
             cb(*args)
@@ -80,14 +90,19 @@ class BarProcessor:
         """Process a follow-up order returned from on_fill or on_exit."""
         if order is None:
             return
-        # Sentinel: cancel all pending limits without placing a new order
+        # Sentinel: cancel all pending limits/stops without placing a new order
         if isinstance(order, CancelPendingLimitsOrder):
             self._pending_limits.clear()
+            self._pending_stops.clear()
             return
-        # Order-level flag: cancel pending limits then process the order
+        # Order-level flag: cancel pending limits/stops then process the order
         if order.cancel_pending_limits:
             self._pending_limits.clear()
-        if isinstance(order, LimitOrder):
+            self._pending_stops.clear()
+        # StopOrder check must come before LimitOrder (StopOrder is an Order subclass)
+        if isinstance(order, StopOrder):
+            self._pending_stops.append(_PendingStop(order=order))
+        elif isinstance(order, LimitOrder):
             self._pending_limits.append(_PendingLimit(order=order))
         else:
             self._pending_order = order
@@ -192,6 +207,53 @@ class BarProcessor:
             ]
 
         # ============================================================
+        # PHASE 1c: Check pending stop orders for fills
+        # ============================================================
+        stops_snapshot = list(self._pending_stops)
+        stops_to_remove = set()
+        for pending in stops_snapshot:
+            if not self.portfolio.can_open():
+                break
+            # Direction check
+            if self._same_direction_only and self.portfolio.has_position:
+                existing_side = self.portfolio.positions[0].side
+                if pending.order.side != existing_side:
+                    stops_to_remove.add(id(pending))
+                    continue
+
+            pending.bars_elapsed += 1
+
+            filled, fill_price = self.execution.check_stop_fill(
+                pending.order.stop_price, pending.order.side, bar
+            )
+            if filled:
+                # Stop orders become market orders: apply entry slippage, taker fee
+                fill_price = self.execution.apply_entry_slippage(
+                    fill_price, pending.order.side
+                )
+                fill = self.portfolio.open_position(
+                    bar, pending.order,
+                    apply_slippage=False,
+                    limit_price=fill_price,
+                    is_maker=False,
+                )
+                self._emit("fill", fill)
+                follow_up = self.strategy.on_fill(fill)
+                self._handle_follow_up(follow_up)
+                stops_to_remove.add(id(pending))
+                just_opened = True
+            elif (
+                pending.order.timeout_bars > 0
+                and pending.bars_elapsed >= pending.order.timeout_bars
+            ):
+                stops_to_remove.add(id(pending))
+
+        if stops_to_remove:
+            self._pending_stops = [
+                p for p in self._pending_stops if id(p) not in stops_to_remove
+            ]
+
+        # ============================================================
         # PHASE 3: Check exits (gap protection + SL/TP)
         # ============================================================
         just_closed = False
@@ -204,34 +266,43 @@ class BarProcessor:
 
         # Process exits in reverse order (preserve indices)
         for idx, exit_price, reason in reversed(exits_to_process):
-            trade = self.portfolio.close_position(idx, exit_price, bar, reason)
-            self._emit("exit", trade)
-            follow_up = self.strategy.on_exit(
-                Fill(
-                    timestamp=bar.timestamp,
-                    side=trade.side,
-                    price=trade.exit_price,
-                    size_usd=trade.size_usd,
-                    symbol=trade.symbol,
-                    is_entry=False,
-                    reason=reason,
-                ),
-                trade,
-            )
-            self._handle_follow_up(follow_up)
-            just_closed = True
+            pos = self.portfolio.positions[idx]
+            is_tp = "TAKE_PROFIT" in reason
 
-        # ============================================================
-        # PHASE 3.5: Strategy-initiated exits (e.g. HTF RSI exit)
-        # ============================================================
-        strat_exits = self.strategy.check_exits(bar, list(self.portfolio.positions))
-        for pos_idx, exit_price, reason in sorted(
-            strat_exits, key=lambda x: x[0], reverse=True
-        ):
-            if pos_idx < len(self.portfolio.positions):
+            # Partial TP: close fraction, keep remainder open
+            if (
+                is_tp
+                and pos.partial_tp_pct > 0
+                and not pos.partial_tp_done
+            ):
                 trade = self.portfolio.close_position(
-                    pos_idx, exit_price, bar, reason
+                    idx, exit_price, bar, "PARTIAL_TP",
+                    close_pct=pos.partial_tp_pct,
                 )
+                pos.partial_tp_done = True
+                # Update TP for remainder if configured
+                if pos.partial_tp_new_tp_pct > 0:
+                    if pos.is_long:
+                        pos.take_profit = pos.entry_price * (1 + pos.partial_tp_new_tp_pct)
+                    else:
+                        pos.take_profit = pos.entry_price * (1 - pos.partial_tp_new_tp_pct)
+                self._emit("exit", trade)
+                follow_up = self.strategy.on_exit(
+                    Fill(
+                        timestamp=bar.timestamp,
+                        side=trade.side,
+                        price=trade.exit_price,
+                        size_usd=trade.size_usd,
+                        symbol=trade.symbol,
+                        is_entry=False,
+                        reason="PARTIAL_TP",
+                    ),
+                    trade,
+                )
+                self._handle_follow_up(follow_up)
+                # Position still open — don't set just_closed
+            else:
+                trade = self.portfolio.close_position(idx, exit_price, bar, reason)
                 self._emit("exit", trade)
                 follow_up = self.strategy.on_exit(
                     Fill(
@@ -247,6 +318,40 @@ class BarProcessor:
                 )
                 self._handle_follow_up(follow_up)
                 just_closed = True
+
+        # ============================================================
+        # PHASE 3.5: Strategy-initiated exits (e.g. HTF RSI exit)
+        # ============================================================
+        strat_exits = self.strategy.check_exits(bar, list(self.portfolio.positions))
+        for exit_tuple in sorted(
+            strat_exits, key=lambda x: x[0], reverse=True
+        ):
+            pos_idx = exit_tuple[0]
+            exit_price = exit_tuple[1]
+            reason = exit_tuple[2]
+            close_pct = exit_tuple[3] if len(exit_tuple) > 3 else 1.0
+
+            if pos_idx < len(self.portfolio.positions):
+                trade = self.portfolio.close_position(
+                    pos_idx, exit_price, bar, reason,
+                    close_pct=close_pct,
+                )
+                self._emit("exit", trade)
+                follow_up = self.strategy.on_exit(
+                    Fill(
+                        timestamp=bar.timestamp,
+                        side=trade.side,
+                        price=trade.exit_price,
+                        size_usd=trade.size_usd,
+                        symbol=trade.symbol,
+                        is_entry=False,
+                        reason=reason,
+                    ),
+                    trade,
+                )
+                self._handle_follow_up(follow_up)
+                if close_pct >= 1.0:
+                    just_closed = True
 
         # ============================================================
         # PHASE 4: Update indicators and generate signal
@@ -283,3 +388,4 @@ class BarProcessor:
         """Reset pending order state."""
         self._pending_order = None
         self._pending_limits.clear()
+        self._pending_stops.clear()

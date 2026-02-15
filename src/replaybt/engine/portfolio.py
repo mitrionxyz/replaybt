@@ -103,6 +103,12 @@ class Portfolio:
             symbol=order.symbol or bar.symbol,
             breakeven_trigger=order.breakeven_trigger_pct or 0.0,
             breakeven_lock=order.breakeven_lock_pct or 0.0,
+            trailing_stop_pct=order.trailing_stop_pct or 0.0,
+            trailing_stop_activation_pct=order.trailing_stop_activation_pct or 0.0,
+            position_high=price,
+            position_low=price,
+            partial_tp_pct=order.partial_tp_pct or 0.0,
+            partial_tp_new_tp_pct=order.partial_tp_new_tp_pct or 0.0,
         )
         self.positions.append(pos)
 
@@ -177,8 +183,9 @@ class Portfolio:
         bar: Bar,
         reason: str,
         apply_slippage: bool = True,
+        close_pct: float = 1.0,
     ) -> Trade:
-        """Close position at index and record the trade.
+        """Close position (fully or partially) at index and record the trade.
 
         Args:
             index: Index into self.positions.
@@ -186,11 +193,19 @@ class Portfolio:
             bar: Current bar.
             reason: Exit reason string.
             apply_slippage: Whether to apply adverse slippage.
+            close_pct: Fraction to close (0.0-1.0). Default 1.0 = full close.
 
         Returns:
             Completed Trade object.
         """
-        pos = self.positions.pop(index)
+        is_partial = close_pct < 1.0
+
+        if is_partial:
+            pos = self.positions[index]
+            close_size_usd = pos.size_usd * close_pct
+        else:
+            pos = self.positions.pop(index)
+            close_size_usd = pos.size_usd
 
         if apply_slippage:
             exit_price = self.execution.apply_exit_slippage(exit_price, pos.side)
@@ -201,10 +216,10 @@ class Portfolio:
         else:
             pnl_pct = (pos.entry_price - exit_price) / pos.entry_price
 
-        # Fees: entry + exit
-        fees = self.execution.calc_fees(pos.size_usd) * 2
-        pnl_usd = (pos.size_usd * pnl_pct) - fees
-        self.total_fees += self.execution.calc_fees(pos.size_usd)  # exit fee
+        # Fees: entry + exit on the closed portion
+        fees = self.execution.calc_fees(close_size_usd) * 2
+        pnl_usd = (close_size_usd * pnl_pct) - fees
+        self.total_fees += self.execution.calc_fees(close_size_usd)  # exit fee
 
         # Update equity
         self.equity += pnl_usd
@@ -212,18 +227,23 @@ class Portfolio:
         drawdown = (self.peak_equity - self.equity) / self.peak_equity
         self.max_drawdown = max(self.max_drawdown, drawdown)
 
+        # Reduce position size if partial
+        if is_partial:
+            pos.size_usd -= close_size_usd
+
         trade = Trade(
             entry_time=pos.entry_time,
             exit_time=bar.timestamp,
             side=pos.side,
             entry_price=pos.entry_price,
             exit_price=exit_price,
-            size_usd=pos.size_usd,
+            size_usd=close_size_usd,
             pnl_usd=pnl_usd,
             pnl_pct=pnl_pct,
             fees=fees,
             reason=reason,
             symbol=pos.symbol,
+            is_partial=is_partial,
         )
         self.trades.append(trade)
 
@@ -234,9 +254,9 @@ class Portfolio:
             timestamp=bar.timestamp,
             side=pos.side,
             price=exit_price,
-            size_usd=pos.size_usd,
+            size_usd=close_size_usd,
             symbol=pos.symbol,
-            fees=self.execution.calc_fees(pos.size_usd),
+            fees=self.execution.calc_fees(close_size_usd),
             is_entry=False,
             reason=reason,
         )

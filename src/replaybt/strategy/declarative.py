@@ -241,6 +241,18 @@ class DeclarativeStrategy(Strategy):
         if "breakeven_lock_pct" in self._exit:
             kwargs["breakeven_lock_pct"] = self._exit["breakeven_lock_pct"]
 
+        # Trailing stop
+        if "trailing_stop_pct" in self._exit:
+            kwargs["trailing_stop_pct"] = self._exit["trailing_stop_pct"]
+        if "trailing_stop_activation_pct" in self._exit:
+            kwargs["trailing_stop_activation_pct"] = self._exit["trailing_stop_activation_pct"]
+
+        # Partial take profit
+        if "partial_tp_pct" in self._exit:
+            kwargs["partial_tp_pct"] = self._exit["partial_tp_pct"]
+        if "partial_tp_new_tp_pct" in self._exit:
+            kwargs["partial_tp_new_tp_pct"] = self._exit["partial_tp_new_tp_pct"]
+
         return MarketOrder(**kwargs)
 
     def on_fill(self, fill: Fill):

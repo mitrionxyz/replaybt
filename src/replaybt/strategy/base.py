@@ -92,7 +92,9 @@ class Strategy(ABC):
             positions: List of open positions.
 
         Returns:
-            List of (position_idx, exit_price, reason) tuples to close.
+            List of tuples to close:
+            - (position_idx, exit_price, reason) — full close (backward compat)
+            - (position_idx, exit_price, reason, close_pct) — partial (0.0-1.0)
         """
         return []
 

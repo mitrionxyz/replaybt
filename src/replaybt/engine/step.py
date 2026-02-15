@@ -22,7 +22,7 @@ from ..data.types import Bar, Fill, Position, Trade, Side
 from ..data.providers.base import DataProvider
 from ..strategy.base import Strategy
 from .loop import BacktestEngine
-from .orders import Order, MarketOrder, LimitOrder, CancelPendingLimitsOrder
+from .orders import Order, MarketOrder, LimitOrder, StopOrder, CancelPendingLimitsOrder
 
 
 @dataclass(frozen=True)
@@ -111,6 +111,7 @@ class StepEngine:
         self._engine.indicators.reset()
         self._engine._pending_order = None
         self._engine._pending_limits.clear()
+        self._engine._pending_stops.clear()
         self._engine._bar_count = 0
         self._engine._first_bar = None
         self._engine._last_bar = None
@@ -153,7 +154,7 @@ class StepEngine:
         )
 
     def step(
-        self, action: Optional[Union[Order, MarketOrder, LimitOrder]] = None,
+        self, action: Optional[Union[Order, MarketOrder, LimitOrder, StopOrder]] = None,
     ) -> StepResult:
         """Advance one bar and apply the agent's action.
 
@@ -174,7 +175,10 @@ class StepEngine:
 
         # Inject action into engine state
         if action is not None:
-            if isinstance(action, LimitOrder):
+            if isinstance(action, StopOrder):
+                from .loop import _PendingStop
+                self._engine._pending_stops.append(_PendingStop(order=action))
+            elif isinstance(action, LimitOrder):
                 from .loop import _PendingLimit
                 self._engine._pending_limits.append(_PendingLimit(order=action))
             elif isinstance(action, (Order, MarketOrder)):

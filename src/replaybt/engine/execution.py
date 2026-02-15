@@ -73,6 +73,21 @@ class ExecutionModel:
         high = bar.high
         low = bar.low
 
+        # Trailing stop: ratchet SL toward price (based on extremes seen so far)
+        if pos.trailing_stop_pct > 0:
+            if pos.is_long:
+                profit_pct = (pos.position_high - pos.entry_price) / pos.entry_price
+                if profit_pct >= pos.trailing_stop_activation_pct:
+                    pos.trailing_stop_activated = True
+                    trail_sl = pos.position_high * (1 - pos.trailing_stop_pct)
+                    pos.stop_loss = max(pos.stop_loss, trail_sl)
+            else:
+                profit_pct = (pos.entry_price - pos.position_low) / pos.entry_price
+                if profit_pct >= pos.trailing_stop_activation_pct:
+                    pos.trailing_stop_activated = True
+                    trail_sl = pos.position_low * (1 + pos.trailing_stop_pct)
+                    pos.stop_loss = min(pos.stop_loss, trail_sl) if pos.stop_loss > 0 else trail_sl
+
         # Update breakeven if triggered
         if not pos.breakeven_activated and pos.breakeven_trigger > 0:
             if pos.is_long:
@@ -89,11 +104,21 @@ class ExecutionModel:
         if pos.is_long:
             # GAP PROTECTION: open gapped below SL
             if open_price <= pos.stop_loss:
-                reason = "BREAKEVEN_GAP" if pos.breakeven_activated else "STOP_LOSS_GAP"
+                if pos.trailing_stop_activated:
+                    reason = "TRAILING_STOP_GAP"
+                elif pos.breakeven_activated:
+                    reason = "BREAKEVEN_GAP"
+                else:
+                    reason = "STOP_LOSS_GAP"
                 return open_price, reason
             # Intra-bar SL
             if low <= pos.stop_loss:
-                reason = "BREAKEVEN" if pos.breakeven_activated else "STOP_LOSS"
+                if pos.trailing_stop_activated:
+                    reason = "TRAILING_STOP"
+                elif pos.breakeven_activated:
+                    reason = "BREAKEVEN"
+                else:
+                    reason = "STOP_LOSS"
                 return pos.stop_loss, reason
             # GAP PROTECTION: open gapped above TP
             if open_price >= pos.take_profit:
@@ -104,11 +129,21 @@ class ExecutionModel:
         else:
             # GAP PROTECTION: open gapped above SL
             if open_price >= pos.stop_loss:
-                reason = "BREAKEVEN_GAP" if pos.breakeven_activated else "STOP_LOSS_GAP"
+                if pos.trailing_stop_activated:
+                    reason = "TRAILING_STOP_GAP"
+                elif pos.breakeven_activated:
+                    reason = "BREAKEVEN_GAP"
+                else:
+                    reason = "STOP_LOSS_GAP"
                 return open_price, reason
             # Intra-bar SL
             if high >= pos.stop_loss:
-                reason = "BREAKEVEN" if pos.breakeven_activated else "STOP_LOSS"
+                if pos.trailing_stop_activated:
+                    reason = "TRAILING_STOP"
+                elif pos.breakeven_activated:
+                    reason = "BREAKEVEN"
+                else:
+                    reason = "STOP_LOSS"
                 return pos.stop_loss, reason
             # GAP PROTECTION: open gapped below TP
             if open_price <= pos.take_profit:
@@ -116,6 +151,10 @@ class ExecutionModel:
             # Intra-bar TP
             if low <= pos.take_profit:
                 return pos.take_profit, "TAKE_PROFIT"
+
+        # Track position extremes for next bar's trailing stop
+        pos.position_high = max(pos.position_high, high)
+        pos.position_low = min(pos.position_low, low)
 
         return None, None
 
@@ -131,3 +170,27 @@ class ExecutionModel:
             return bar.low <= limit_price
         else:
             return bar.high >= limit_price
+
+    def check_stop_fill(
+        self, stop_price: float, side: Side, bar: Bar
+    ) -> Tuple[bool, float]:
+        """Check if a stop order would fill on this bar.
+
+        LONG stop: fills when bar.high >= stop_price (breakout above).
+        SHORT stop: fills when bar.low <= stop_price (breakdown below).
+        Gap-through: if bar opens past stop_price, fill at open (worse).
+
+        Returns:
+            (filled, fill_price). fill_price is 0.0 if not filled.
+        """
+        if side == Side.LONG:
+            if bar.open >= stop_price:
+                return True, bar.open  # gap through
+            if bar.high >= stop_price:
+                return True, stop_price
+        else:
+            if bar.open <= stop_price:
+                return True, bar.open  # gap through
+            if bar.low <= stop_price:
+                return True, stop_price
+        return False, 0.0
