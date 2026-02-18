@@ -83,6 +83,9 @@ from .optimize.results import SweepResults
 # Analysis
 from .analysis import MonteCarlo, MonteCarloResult, WalkForward, WalkForwardResult, WindowResult
 
+# Grid market making
+from .grid import GridBacktestEngine, GridConfig, GridResults
+
 __all__ = [
     # Engine
     "BacktestEngine",
@@ -169,4 +172,8 @@ __all__ = [
     "WalkForward",
     "WalkForwardResult",
     "WindowResult",
+    # Grid market making
+    "GridBacktestEngine",
+    "GridConfig",
+    "GridResults",
 ]
