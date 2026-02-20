@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    {name = "sirmoremoney"},
+    {name = "mitrionxyz"},
 ]
 keywords = ["backtesting", "trading", "algorithmic-trading", "crypto"]
 classifiers = [
@@ -31,9 +31,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sirmoremoney/replaybt"
-Source = "https://github.com/sirmoremoney/replaybt"
-Issues = "https://github.com/sirmoremoney/replaybt/issues"
+Homepage = "https://github.com/mitrionxyz/replaybt"
+Source = "https://github.com/mitrionxyz/replaybt"
+Issues = "https://github.com/mitrionxyz/replaybt/issues"
 
 [project.optional-dependencies]
 data = ["requests>=2.28"]

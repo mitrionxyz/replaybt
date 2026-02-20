@@ -1,8 +1,8 @@
 site_name: replaybt
 site_description: Realistic backtesting engine for algo traders & AI agents
-site_url: https://sirmoremoney.github.io/replaybt
-repo_url: https://github.com/sirmoremoney/replaybt
-repo_name: sirmoremoney/replaybt
+site_url: https://mitrionxyz.github.io/replaybt
+repo_url: https://github.com/mitrionxyz/replaybt
+repo_name: mitrionxyz/replaybt
 
 theme:
   name: material

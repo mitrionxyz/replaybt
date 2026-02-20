@@ -11,7 +11,7 @@ pip install replaybt
 ```
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/sirmoremoney/replaybt/main/docs/assets/demo.gif" alt="replaybt demo" width="880">
+  <img src="https://raw.githubusercontent.com/mitrionxyz/replaybt/main/docs/assets/demo.gif" alt="replaybt demo" width="880">
 </p>
 
 ## Quick Start
@@ -68,12 +68,12 @@ print(results.summary())
 
 ## Documentation
 
-Full documentation: [sirmoremoney.github.io/replaybt](https://sirmoremoney.github.io/replaybt)
+Full documentation: [mitrionxyz.github.io/replaybt](https://mitrionxyz.github.io/replaybt)
 
-- [Getting Started](https://sirmoremoney.github.io/replaybt/getting-started/) — first backtest tutorial
-- [Concepts](https://sirmoremoney.github.io/replaybt/concepts/) — execution loop, signal timing, gap protection
-- [Cookbook](https://sirmoremoney.github.io/replaybt/cookbook/) — working recipes for common patterns
-- [API Reference](https://sirmoremoney.github.io/replaybt/api/) — every class, method, and parameter
+- [Getting Started](https://mitrionxyz.github.io/replaybt/getting-started/) — first backtest tutorial
+- [Concepts](https://mitrionxyz.github.io/replaybt/concepts/) — execution loop, signal timing, gap protection
+- [Cookbook](https://mitrionxyz.github.io/replaybt/cookbook/) — working recipes for common patterns
+- [API Reference](https://mitrionxyz.github.io/replaybt/api/) — every class, method, and parameter
 
 ## License
 
